@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="Resonance.Places.Application/Resonance.Places.Application.csproj" />
   <Project Path="Resonance.Places.Domain/Resonance.Places.Domain.csproj" />
+  <Project Path="Resonance.Places.Infrastructure/Resonance.Places.Infrastructure.csproj" />
 </Solution>
