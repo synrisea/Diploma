@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: resonance-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: resonance_places
+      POSTGRES_USER: resonance
+      POSTGRES_PASSWORD: dev123
+    ports:
+      - "5432:5432"
+    volumes:
+      - resonance_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  resonance_postgres_data:

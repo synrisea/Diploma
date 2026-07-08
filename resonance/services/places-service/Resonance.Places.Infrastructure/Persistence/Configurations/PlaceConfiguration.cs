@@ -15,9 +15,11 @@ public class PlaceConfiguration : IEntityTypeConfiguration<Place>
             .HasMaxLength(200);
         
         builder.Property(p => p.Location)
-            .HasColumnType("geography (point, 4326)")
+            .HasColumnType("geometry (point, 4326)")
             .IsRequired();
         
+        builder.HasIndex(p => p.Location)
+            .HasMethod("GIST");
         builder.Property(p => p.Address).HasMaxLength(300);
 
         builder.HasOne(p => p.Category)
