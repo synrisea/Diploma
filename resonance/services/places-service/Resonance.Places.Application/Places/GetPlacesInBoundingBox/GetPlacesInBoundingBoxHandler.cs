@@ -8,7 +8,7 @@ namespace Resonance.Places.Application.Places.GetPlacesInBoundingBox;
 
 public class GetPlacesInBoundingBoxHandler : IRequestHandler<GetPlacesInBoundingBoxQuery, List<PlaceDto>>
 {
-    private static readonly GeometryFactory geometryFactory = NtsGeometryServices.Instance.CreateGeometryFactory(srid:4236);
+    private static readonly GeometryFactory geometryFactory = NtsGeometryServices.Instance.CreateGeometryFactory(srid:4326);
     private readonly IApplicationDbContext _context;
 
     public GetPlacesInBoundingBoxHandler(IApplicationDbContext context)
