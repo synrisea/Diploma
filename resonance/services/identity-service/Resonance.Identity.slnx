@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Resonance.Identity.Api/Resonance.Identity.Api.csproj" />
+  <Project Path="Resonance.Identity.Application/Resonance.Identity.Application.csproj" />
+  <Project Path="Resonance.Identity.Domain/Resonance.Identity.Domain.csproj" />
+  <Project Path="Resonance.Identity.Infrastructure/Resonance.Identity.Infrastructure.csproj" />
+</Solution>
