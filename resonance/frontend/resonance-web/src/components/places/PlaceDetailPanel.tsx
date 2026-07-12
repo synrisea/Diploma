@@ -1,5 +1,7 @@
 import type { PlaceDto } from '../../types/place';
 import { getCategoryStyle } from '../../lib/categoryStyles';
+import { CommentList } from '../feedback/CommentList';
+import { CommentForm } from '../feedback/CommentForm';
 
 interface PlaceDetailPanelProps {
   place: PlaceDto;
@@ -31,25 +33,18 @@ export function PlaceDetailPanel({ place, onBack }: PlaceDetailPanelProps) {
 
         <h2 className="mt-3 text-xl font-semibold text-stone-900">{place.name}</h2>
 
-        {place.address ? (
-          <p className="mt-1 text-sm text-stone-500">{place.address}</p>
-        ) : (
-          <p className="mt-1 text-sm text-stone-400 italic">No address on record yet</p>
-        )}
+        {place.address && <p className="mt-1 text-sm text-stone-500">{place.address}</p>}
 
-        <dl className="mt-6 space-y-3 border-t border-stone-200 pt-4 text-sm">
-          <div className="flex justify-between gap-4">
-            <dt className="text-stone-500">Coordinates</dt>
-            <dd className="font-mono text-stone-700 tabular-nums">
-              {place.latitude.toFixed(5)}, {place.longitude.toFixed(5)}
-            </dd>
+        <div className="mt-6 border-t border-stone-200 pt-4">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-stone-400">Comments</h3>
+          <div className="mt-3">
+            <CommentList placeId={place.id} />
           </div>
-        </dl>
+        </div>
 
-        <p className="mt-6 text-sm text-stone-400">
-          Community feedback, ratings, and AI summaries for this place aren't collected yet — that's the next
-          phase of Resonance.
-        </p>
+        <div className="mt-5 border-t border-stone-200 pt-4">
+          <CommentForm placeId={place.id} />
+        </div>
       </div>
     </div>
   );
