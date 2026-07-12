@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Resonance.Feedback.Api/Resonance.Feedback.Api.csproj" />
+  <Project Path="Resonance.Feedback.Application/Resonance.Feedback.Application.csproj" />
+  <Project Path="Resonance.Feedback.Domain/Resonance.Feedback.Domain.csproj" />
+  <Project Path="Resonance.Feedback.Infrastructure/Resonance.Feedback.Infrastructure.csproj" />
+</Solution>
