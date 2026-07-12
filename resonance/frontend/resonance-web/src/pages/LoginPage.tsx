@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
-import { login, register } from '../../api/auth';
-import { useAuth } from '../../auth/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { login, register } from '../api/auth';
+import { useAuth } from '../auth/AuthContext';
 
-export function AuthPanel({ onClose }: { onClose: () => void }) {
+export function LoginPage() {
   const { setAuth } = useAuth();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +20,7 @@ export function AuthPanel({ onClose }: { onClose: () => void }) {
     try {
       const response = mode === 'login' ? await login(email, password) : await register(email, password, displayName);
       setAuth(response);
-      onClose();
+      navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
@@ -27,14 +29,9 @@ export function AuthPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 px-4">
-      <div className="w-full max-w-sm rounded-md bg-white p-6 shadow-lg">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-stone-900">{mode === 'login' ? 'Log in' : 'Create an account'}</h2>
-          <button type="button" onClick={onClose} className="text-stone-400 hover:text-stone-700" aria-label="Close">
-            ✕
-          </button>
-        </div>
+    <div className="flex flex-1 items-center justify-center bg-stone-50 px-4">
+      <div className="w-full max-w-sm rounded-md border border-stone-200 bg-white p-6 shadow-sm">
+        <h1 className="text-lg font-semibold text-stone-900">{mode === 'login' ? 'Log in' : 'Create an account'}</h1>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
           {mode === 'register' && (
