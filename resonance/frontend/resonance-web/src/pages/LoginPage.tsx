@@ -70,11 +70,10 @@ export function LoginPage() {
           <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
             {mode === 'register' && (
               <label className="flex flex-col gap-1.5 text-sm">
-                <span className="font-medium text-stone-700">Display name</span>
+                <span className="font-medium text-stone-700">Name</span>
                 <input
                   type="text"
                   required
-                  placeholder="Aysel Məmmədova"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   className={inputClass}
