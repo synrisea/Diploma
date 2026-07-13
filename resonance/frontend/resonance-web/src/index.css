@@ -17,9 +17,15 @@ body {
   color-scheme: light;
 }
 
-/* Leaflet renders these inline; strip the default browser button chrome so
-   our SVG pins don't inherit a focus ring shaped like a rectangle. */
 .leaflet-marker-icon.resonance-marker {
   background: none;
   border: none;
+}
+
+.leaflet-container.leaflet-grab {
+  cursor: move;
+}
+.leaflet-container.leaflet-grab:active,
+.leaflet-dragging .leaflet-container {
+  cursor: move;
 }
