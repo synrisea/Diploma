@@ -14,6 +14,11 @@ export function MapPage() {
 
   const selectedPlace = places.find((place) => place.id === selectedPlaceId) ?? null;
 
+  const handleSelectPlace = (id: string) => {
+    setSelectedPlaceId(id);
+    setIsSidebarOpen(true);
+  };
+
   return (
     <div className="relative flex flex-1 overflow-hidden">
       <aside
@@ -30,7 +35,7 @@ export function MapPage() {
               isLoading={isLoading}
               isError={isError}
               selectedPlaceId={selectedPlaceId}
-              onSelect={setSelectedPlaceId}
+              onSelect={handleSelectPlace}
             />
           )}
         </div>
@@ -53,7 +58,7 @@ export function MapPage() {
         <MapView
           places={places}
           selectedPlaceId={selectedPlaceId}
-          onSelectPlace={setSelectedPlaceId}
+          onSelectPlace={handleSelectPlace}
           onBoundsChange={setBbox}
           resizeTrigger={isSidebarOpen}
         />
