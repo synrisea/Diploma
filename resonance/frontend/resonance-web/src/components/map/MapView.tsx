@@ -4,6 +4,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import type { PlaceDto, BoundingBox } from '../../types/place';
 import { BoundsWatcher } from './BoundsWatcher';
 import { ClusterGroup } from './ClusterGroup';
+import { MapResizeHandler } from './MapResizeHandler';
 
 // Torgovy / Ticarət, central Baku
 const INITIAL_CENTER: [number, number] = [40.370171, 49.843383];
@@ -14,9 +15,10 @@ interface MapViewProps {
   selectedPlaceId: string | null;
   onSelectPlace: (id: string) => void;
   onBoundsChange: (bbox: BoundingBox) => void;
+  resizeTrigger?: unknown;
 }
 
-export function MapView({ places, selectedPlaceId, onSelectPlace, onBoundsChange }: MapViewProps) {
+export function MapView({ places, selectedPlaceId, onSelectPlace, onBoundsChange, resizeTrigger }: MapViewProps) {
   return (
     <MapContainer
       center={INITIAL_CENTER}
@@ -31,6 +33,7 @@ export function MapView({ places, selectedPlaceId, onSelectPlace, onBoundsChange
       />
       <BoundsWatcher onBoundsChange={onBoundsChange} />
       <ClusterGroup places={places} selectedPlaceId={selectedPlaceId} onSelectPlace={onSelectPlace} />
+      <MapResizeHandler resizeTrigger={resizeTrigger} />
     </MapContainer>
   );
 }

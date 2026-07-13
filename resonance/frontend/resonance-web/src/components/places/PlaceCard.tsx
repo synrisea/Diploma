@@ -14,8 +14,8 @@ export function PlaceCard({ place, isSelected, onSelect }: PlaceCardProps) {
     <button
       type="button"
       onClick={() => onSelect(place.id)}
-      className={`w-full text-left px-4 py-3 border-b border-stone-200 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-rose-700 ${
-        isSelected ? 'bg-rose-50' : 'hover:bg-stone-50'
+      className={`w-full text-left px-4 py-3 border-b border-stone-200 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-500 ${
+        isSelected ? 'bg-brand-50' : 'hover:bg-stone-50'
       }`}
     >
       <div className="flex items-start gap-3">

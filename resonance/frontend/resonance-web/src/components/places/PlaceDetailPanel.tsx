@@ -17,9 +17,12 @@ export function PlaceDetailPanel({ place, onBack }: PlaceDetailPanelProps) {
         <button
           type="button"
           onClick={onBack}
-          className="text-sm font-medium text-stone-500 hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-rose-700"
+          className="flex items-center gap-1 text-sm font-medium text-stone-500 hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-brand-500"
         >
-          ← Back to list
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+            <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back to list
         </button>
       </div>
 

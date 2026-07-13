@@ -20,7 +20,7 @@ export function PlaceList({ places, isLoading, isError, selectedPlaceId, onSelec
 
       <div className="flex-1 overflow-y-auto">
         {isError && (
-          <div className="p-4 text-sm text-rose-700">
+          <div className="p-4 text-sm text-red-700">
             Couldn't reach the Resonance API. Confirm the backend is running on port 5112.
           </div>
         )}
