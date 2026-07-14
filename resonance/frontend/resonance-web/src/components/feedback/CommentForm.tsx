@@ -26,7 +26,7 @@ export function CommentForm({ placeId }: { placeId: string }) {
       <textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
-        placeholder="What's it like here? Quiet, crowded, good wifi..."
+        placeholder="What's it like here?"
         rows={3}
         maxLength={2000}
         required
