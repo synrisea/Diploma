@@ -41,6 +41,7 @@ docker compose -f infra/docker-compose.yml up -d --build
 - [x] Map page: clustering, collapsible sidebar (reopens automatically when you select a place while collapsed)
 - [x] Dedicated `/login` page (two-panel layout), account dropdown menu
 - [x] Comment list + submission form on place detail
+- [x] Discovered topics shown as badges on place detail (via Topics' `GET /api/topics/places/{id}`) — the first place Topics' output is actually visible to a user, not just curl
 - [x] Unified brand color token (`brand-500` etc. in `index.css`), consistent across markers and UI chrome
 
 ## Topics service — built and verified (2026-07-22)
@@ -64,7 +65,7 @@ Two natural follow-ups (don't start before confirming Topics is running well aga
 
 ## Next step
 
-Not yet decided — options on the table are dimension promotion, AI paragraph summaries, wiring Topics' output into the frontend (a "trending themes" panel, or showing relevant topics on a place page), or picking up one of the deferred items below. Ask before assuming.
+Per-place topic badges are done (2026-07-23). Not yet decided what's next — remaining options are a global "trending themes" view (aggregate across all places, not just one), dimension promotion, AI paragraph summaries, or picking up one of the deferred items below. Ask before assuming.
 
 ## Deferred, on purpose (don't re-suggest without new information)
 
