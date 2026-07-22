@@ -11,6 +11,73 @@ services:
       - "5432:5432"
     volumes:
       - resonance_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resonance"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  places-api:
+    build:
+      context: ../services/places-service
+      dockerfile: Resonance.Places.Api/Dockerfile
+    container_name: resonance-places-api
+    restart: unless-stopped
+    ports:
+      - "5112:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=resonance_places;Username=resonance;Password=dev123
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  identity-api:
+    build:
+      context: ../services/identity-service
+      dockerfile: Resonance.Identity.Api/Dockerfile
+    container_name: resonance-identity-api
+    restart: unless-stopped
+    ports:
+      - "5076:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=resonance_identity;Username=resonance;Password=dev123
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  feedback-api:
+    build:
+      context: ../services/feedback-service
+      dockerfile: Resonance.Feedback.Api/Dockerfile
+    container_name: resonance-feedback-api
+    restart: unless-stopped
+    ports:
+      - "5066:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=resonance_feedback;Username=resonance;Password=dev123
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  topics-api:
+    build:
+      context: ../services/topics-service
+    container_name: resonance-topics-api
+    restart: unless-stopped
+    ports:
+      - "8010:8001"
+    environment:
+      FEEDBACK_API_BASE_URL: http://feedback-api:8080
+      FEEDBACK_FETCH_LIMIT: "500"
+      FEEDBACK_RETRAIN_THRESHOLD: "100"
+    volumes:
+      - resonance_topics_data:/data
+    depends_on:
+      - feedback-api
 
 volumes:
   resonance_postgres_data:
+  resonance_topics_data:

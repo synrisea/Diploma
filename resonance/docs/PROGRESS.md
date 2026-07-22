@@ -1,18 +1,26 @@
 # Resonance — Progress & Roadmap
 
-Last updated: 2026-07-22. This file is the source of truth for "what's done and what's next" — update it as things change instead of relying on memory.
+Last updated: 2026-07-23. This file is the source of truth for "what's done and what's next" — update it as things change instead of relying on memory.
 
 ## Architecture at a glance
 
-| Service | Tech | Dev port | Purpose |
+| Service | Tech | Host port | Purpose |
 |---|---|---|---|
 | `places-service` | ASP.NET Core, PostGIS | 5112 | Place data (imported from OSM), bbox queries for the map |
 | `identity-service` | ASP.NET Core | 5076 | Register/login, issues JWTs |
 | `feedback-service` | ASP.NET Core | 5066 | Free-text comments per place, JWT-protected submit, public read |
-| `topics-service` | Python, FastAPI | 8001 | AI topic discovery from comments (embeddings + HDBSCAN + c-TF-IDF labeling) |
-| `frontend/resonance-web` | React, Vite, Leaflet | 5173 | The actual app |
+| `topics-service` | Python, FastAPI | 8010 (container listens on 8001 internally — host port moved off 8001 due to a persistent, unexplained conflict with Docker Desktop's own backend process on this machine) | AI topic discovery from comments (embeddings + HDBSCAN + c-TF-IDF labeling) |
+| `frontend/resonance-web` | React, Vite, Leaflet | 5173 | The actual app — still run locally via `npm run dev`, not containerized (keeps HMR) |
 
 No API gateway yet (deliberate — see "Deferred, on purpose"). The frontend calls each service directly.
+
+**All four backend services + Postgres are now containerized** (`infra/docker-compose.yml`). One command brings up the whole backend:
+```powershell
+docker compose -f infra/docker-compose.yml up -d --build
+```
+`--build` only actually rebuilds what changed (Docker layer caching) — the Topics image is slow the *first* time (PyTorch + pre-downloading the embedding model at build time so the container needs zero network access to Hugging Face at runtime), fast after. Migrations are **not** run automatically — still a manual one-time step per service (`dotnet ef database update ...`), same as before; the Postgres named volume (`resonance_postgres_data`) persists across container recreation so this is genuinely one-time, not per-restart. Topics' own SQLite data (clusters, cursor) persists via its own named volume (`resonance_topics_data`) too.
+
+**Known Docker Desktop/WSL2 flakiness on this machine** (not specific to this project, but has repeatedly disrupted dev sessions): Docker Desktop can leave zombie processes across restarts, WSL2 itself can get fully wedged (fixed only by a full Windows restart, not just relaunching Docker Desktop — `wsl --status` hanging is the tell), and `com.docker.backend.exe` has repeatedly shown up bound to arbitrary host ports (e.g. 8001) as part of its own port-proxy machinery — killing it takes down Docker's whole engine, so always identify a PID via `Get-CimInstance Win32_Process -Filter "ProcessId = X"` before killing anything found via `netstat`.
 
 ## What's done
 
