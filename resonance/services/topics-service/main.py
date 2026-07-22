@@ -1,12 +1,19 @@
 import json
+import os
 
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from db import init_db, get_connection
 from pipeline import poll_and_maybe_recluster
+
+load_dotenv()
+
+CORS_ORIGINS = os.environ.get("FRONTEND_CORS_ORIGINS", "http://localhost:5173").split(",")
 
 scheduler = AsyncIOScheduler()
 
@@ -19,6 +26,13 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown()
 
 app = FastAPI(title="Resonance Topics Service", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/api/topics")
 def list_topics():

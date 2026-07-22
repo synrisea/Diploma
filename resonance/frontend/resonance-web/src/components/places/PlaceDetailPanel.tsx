@@ -2,6 +2,7 @@ import type { PlaceDto } from '../../types/place';
 import { getCategoryStyle } from '../../lib/categoryStyles';
 import { CommentList } from '../feedback/CommentList';
 import { CommentForm } from '../feedback/CommentForm';
+import { TopicBadges } from '../topics/TopicBadges';
 
 interface PlaceDetailPanelProps {
   place: PlaceDto;
@@ -37,6 +38,10 @@ export function PlaceDetailPanel({ place, onBack }: PlaceDetailPanelProps) {
         <h2 className="mt-3 text-xl font-semibold text-stone-900">{place.name}</h2>
 
         {place.address && <p className="mt-1 text-sm text-stone-500">{place.address}</p>}
+
+        <div className="mt-3">
+          <TopicBadges placeId={place.id} />
+        </div>
 
         <div className="mt-6 border-t border-stone-200 pt-4">
           <h3 className="text-xs font-medium uppercase tracking-wide text-stone-400">Comments</h3>
