@@ -3,6 +3,7 @@ uvicorn[standard]
 httpx
 python-dotenv
 sentence-transformers
+transformers
 hdbscan
 numpy
 apscheduler

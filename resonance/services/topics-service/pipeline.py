@@ -3,7 +3,8 @@ import os
 from datetime import datetime, timezone
 from db import get_connection
 from feedback_client import fetch_comments_after, FETCH_LIMIT
-from clustering import embed_comments, cluster_embeddings, label_clusters
+from clustering import embed_comments, cluster_embeddings, label_clusters, sample_comments
+from labeling import refine_label
 
 RETRAIN_THRESHOLD = int(os.environ.get("FEEDBACK_RETRAIN_THRESHOLD", "100"))
 
@@ -49,16 +50,20 @@ async def recluster(total_count: int) -> None:
     labels = cluster_embeddings(embeddings)
 
     cluster_keywords = label_clusters(comments, labels)
+    cluster_samples = sample_comments(comments, embeddings, labels)
 
     with get_connection() as conn:
         conn.execute("DELETE FROM topics")
         for cluster_id, keywords in cluster_keywords.items():
             member_place_ids = sorted({pid for pid, lbl in zip(place_ids, labels) if lbl == cluster_id})
             member_count = sum(1 for lbl in labels if lbl == cluster_id)
+            refined = refine_label(keywords, cluster_samples.get(cluster_id, []))
+            label = refined.title() if refined else (keywords[0].capitalize() if keywords else "Uncategorized")
+
             conn.execute(
                 "INSERT INTO topics (label, keywords, comment_count, place_ids, computed_at) VALUES (?, ?, ?, ?, ?)",
                 (
-                    ", ".join(keywords[:3]),
+                    label,
                     json.dumps(keywords),
                     member_count,
                     json.dumps(member_place_ids),
