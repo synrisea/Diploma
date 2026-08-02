@@ -13,9 +13,9 @@ MAX_LABEL_WORDS = 4
 
 def refine_label(keywords: list[str], sample_comments: list[str] | None = None) -> str | None:
     """Ask a small local LLM to turn a cluster's top keywords (plus a few real
-    comments from the cluster, for context keywords alone lose) into a short,
-    human-readable category label. Returns None if the model can't produce
-    something usable, so the caller can fall back to a raw keyword."""
+    comments from the cluster) into a short, human-readable category label.
+    Returns None if the model can't produce something usable, so the caller
+    can fall back to a raw keyword."""
     if not keywords:
         return None
 

@@ -73,3 +73,49 @@ def topics_for_place(place_id: str):
 async def poll_now():
     await poll_and_maybe_recluster()
     return {"status": "polled"}
+
+@app.get("/api/dimensions")
+def list_dimensions():
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, label, keywords, sentiment, comment_count, place_counts, first_seen_at, last_seen_at, times_matched FROM dimensions ORDER BY comment_count DESC"
+        ).fetchall()
+
+    return [
+        {
+            "id": r["id"],
+            "label": r["label"],
+            "keywords": json.loads(r["keywords"]),
+            "sentiment": r["sentiment"],
+            "commentCount": r["comment_count"],
+            "placeCounts": json.loads(r["place_counts"]),
+            "firstSeenAt": r["first_seen_at"],
+            "lastSeenAt": r["last_seen_at"],
+            "timesMatched": r["times_matched"],
+        }
+        for r in rows
+    ]
+
+@app.get("/api/sentiment/places")
+def sentiment_by_place():
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT place_id,
+                   SUM(CASE WHEN sentiment = 'positive' THEN 1 ELSE 0 END) AS positive_count,
+                   SUM(CASE WHEN sentiment = 'negative' THEN 1 ELSE 0 END) AS negative_count,
+                   COUNT(*) AS total_count
+            FROM comments
+            WHERE sentiment IS NOT NULL
+            GROUP BY place_id
+        """).fetchall()
+
+    return [
+        {
+            "placeId": r["place_id"],
+            "positiveCount": r["positive_count"],
+            "negativeCount": r["negative_count"],
+            "totalCount": r["total_count"],
+            "score": (r["positive_count"] - r["negative_count"]) / r["total_count"],
+        }
+        for r in rows
+    ]

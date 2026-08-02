@@ -19,6 +19,9 @@ def init_db() -> None:
                 created_at TEXT NOT NULL
             )
         """)
+        existing_columns = {row["name"] for row in conn.execute("PRAGMA table_info(comments)")}
+        if "sentiment" not in existing_columns:
+            conn.execute("ALTER TABLE comments ADD COLUMN sentiment TEXT")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS cursor (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -35,6 +38,20 @@ def init_db() -> None:
                 comment_count INTEGER NOT NULL,
                 place_ids TEXT NOT NULL,
                 computed_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS dimensions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                label TEXT NOT NULL,
+                keywords TEXT NOT NULL,
+                sentiment TEXT NOT NULL DEFAULT 'mixed',
+                centroid TEXT NOT NULL,
+                comment_count INTEGER NOT NULL,
+                place_counts TEXT NOT NULL,
+                first_seen_at TEXT NOT NULL,
+                last_seen_at TEXT NOT NULL,
+                times_matched INTEGER NOT NULL DEFAULT 1
             )
         """)
         conn.commit()

@@ -77,7 +77,7 @@ def sample_comments(comments: list[str], embeddings: np.ndarray, labels: np.ndar
     for cluster_id in set(labels):
         if cluster_id == -1:
             continue
-        member_idx = [i for i, lbl in enumerate(labels) if lbl == cluster_id]
+        member_idx = np.where(labels == cluster_id)[0]
         member_embeddings = embeddings[member_idx]
         centroid = member_embeddings.mean(axis=0)
         centroid = centroid / np.linalg.norm(centroid)
@@ -85,5 +85,19 @@ def sample_comments(comments: list[str], embeddings: np.ndarray, labels: np.ndar
         order = np.argsort(-similarities)[:top_n]
         result[cluster_id] = [comments[member_idx[i]] for i in order]
 
+    return result
+
+def cluster_centroids(embeddings: np.ndarray, labels: np.ndarray) -> dict[int, np.ndarray]:
+    """Normalized centroid (mean embedding) per cluster, used to match a cluster
+    against previously-promoted dimensions across retrains."""
+
+    result: dict[int, np.ndarray] = {}
+
+    for cluster_id in set(labels):
+        if cluster_id == -1:
+            continue
+        member_embeddings = embeddings[labels == cluster_id]
+        centroid = member_embeddings.mean(axis=0)
+        result[cluster_id] = centroid / np.linalg.norm(centroid)
     return result
 
