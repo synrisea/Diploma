@@ -44,17 +44,17 @@ export function HeatmapControl({ mode, onModeChange, dimensions }: HeatmapContro
         <div className="mt-2.5 flex items-center gap-3 text-xs text-stone-500">
           {(mode.kind === 'overall' || activeDimension?.sentiment === 'positive') && (
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" /> Positive
+              <span className="h-2 w-2 rounded-full bg-[#2a78d6]" /> Positive
             </span>
           )}
           {(mode.kind === 'overall' || activeDimension?.sentiment === 'negative') && (
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-red-500" /> Negative
+              <span className="h-2 w-2 rounded-full bg-brand-500" /> Negative
             </span>
           )}
           {activeDimension?.sentiment === 'mixed' && (
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-amber-500" /> Mixed
+              <span className="h-2 w-2 rounded-full bg-[#898781]" /> Mixed
             </span>
           )}
         </div>

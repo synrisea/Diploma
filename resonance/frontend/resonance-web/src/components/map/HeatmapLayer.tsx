@@ -19,7 +19,21 @@ interface HeatmapLayerProps {
 // maxZoom: 16 matches the map's default zoom (MapView's INITIAL_ZOOM) so
 // points render at full intensity there instead of being scaled down by
 // leaflet.heat's built-in zoom-distance falloff.
-const HEAT_OPTIONS = { radius: 32, blur: 22, max: 1, maxZoom: 16 };
+// radius/blur kept tight so blobs read as per-place signal, not a haze
+// that swallows the basemap and markers.
+const HEAT_OPTIONS = { radius: 22, blur: 16, max: 1, maxZoom: 16 };
+
+// Diverging pair: blue (positive) / brand orange (negative), not red/green —
+// red-green is the one diverging pair that collapses under the most common
+// forms of color vision deficiency (protanopia/deuteranopia). Blue vs. a warm
+// hue reads as opposite poles just as clearly and stays colorblind-safe; using
+// the brand orange for "negative" also ties the heatmap to the app's own
+// palette instead of generic traffic-light colors. Neutral gray for "mixed".
+// Peak alpha is capped below 1 (not fully solid) so the basemap and markers
+// stay visible even at the hottest points.
+const POSITIVE_GRADIENT = { 0.5: 'rgba(42,120,214,0)', 0.75: 'rgba(42,120,214,0.45)', 1: 'rgba(42,120,214,0.8)' };
+const NEGATIVE_GRADIENT = { 0.5: 'rgba(225,85,46,0)', 0.75: 'rgba(225,85,46,0.45)', 1: 'rgba(225,85,46,0.8)' };
+const NEUTRAL_GRADIENT = { 0.5: 'rgba(137,135,129,0)', 0.75: 'rgba(137,135,129,0.4)', 1: 'rgba(137,135,129,0.7)' };
 
 export function HeatmapLayer({ positivePoints, negativePoints, neutralPoints }: HeatmapLayerProps) {
   const map = useMap();
@@ -37,12 +51,12 @@ export function HeatmapLayer({ positivePoints, negativePoints, neutralPoints }: 
       layers.push(layer);
     };
 
-    // Rendered as separate single-color layers (not one red-to-green gradient)
-    // so a cluster of bad reviews actually glows red instead of fading to
+    // Rendered as separate single-color layers (not one shared gradient) so a
+    // cluster of bad reviews actually glows visibly instead of fading to
     // near-nothing the way a shared density gradient would render it.
-    addLayer(negativePoints, { 0.4: 'rgba(220,38,38,0)', 0.65: 'rgba(220,38,38,0.55)', 1: '#dc2626' });
-    addLayer(positivePoints, { 0.4: 'rgba(22,163,74,0)', 0.65: 'rgba(22,163,74,0.55)', 1: '#16a34a' });
-    addLayer(neutralPoints, { 0.4: 'rgba(217,119,6,0)', 0.65: 'rgba(217,119,6,0.5)', 1: '#d97706' });
+    addLayer(negativePoints, NEGATIVE_GRADIENT);
+    addLayer(positivePoints, POSITIVE_GRADIENT);
+    addLayer(neutralPoints, NEUTRAL_GRADIENT);
 
     return () => {
       layers.forEach((layer) => map.removeLayer(layer));
