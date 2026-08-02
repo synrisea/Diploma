@@ -1,16 +1,28 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MapView } from '../components/map/MapView';
+import { HeatmapControl } from '../components/map/HeatmapControl';
+import { buildHeatmapPoints, type HeatmapMode } from '../components/map/heatmapPoints';
 import { PlaceList } from '../components/places/PlaceList';
 import { PlaceDetailPanel } from '../components/places/PlaceDetailPanel';
 import { usePlacesInBoundingBox } from '../hooks/usePlacesInBoundingBox';
+import { useDimensions } from '../hooks/useDimensions';
+import { usePlaceSentiment } from '../hooks/usePlaceSentiment';
 import type { BoundingBox } from '../types/place';
 
 export function MapPage() {
   const [bbox, setBbox] = useState<BoundingBox | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [heatmapMode, setHeatmapMode] = useState<HeatmapMode | null>(null);
 
   const { data: places = [], isLoading, isError } = usePlacesInBoundingBox(bbox);
+  const { data: dimensions = [] } = useDimensions();
+  const { data: placeSentiment = [] } = usePlaceSentiment();
+
+  const heatmapPoints = useMemo(
+    () => buildHeatmapPoints(heatmapMode, places, placeSentiment, dimensions),
+    [heatmapMode, places, placeSentiment, dimensions],
+  );
 
   const selectedPlace = places.find((place) => place.id === selectedPlaceId) ?? null;
 
@@ -54,14 +66,16 @@ export function MapPage() {
         </svg>
       </button>
 
-      <main className="flex-1">
+      <main className="relative flex-1">
         <MapView
           places={places}
           selectedPlaceId={selectedPlaceId}
           onSelectPlace={handleSelectPlace}
           onBoundsChange={setBbox}
           resizeTrigger={isSidebarOpen}
+          heatmapPoints={heatmapMode ? heatmapPoints : null}
         />
+        <HeatmapControl mode={heatmapMode} onModeChange={setHeatmapMode} dimensions={dimensions} />
       </main>
     </div>
   );

@@ -5,6 +5,8 @@ import type { PlaceDto, BoundingBox } from '../../types/place';
 import { BoundsWatcher } from './BoundsWatcher';
 import { ClusterGroup } from './ClusterGroup';
 import { MapResizeHandler } from './MapResizeHandler';
+import { HeatmapLayer } from './HeatmapLayer';
+import type { HeatmapPoints } from './heatmapPoints';
 
 // Torgovy / Ticarət, central Baku
 const INITIAL_CENTER: [number, number] = [40.370171, 49.843383];
@@ -16,9 +18,17 @@ interface MapViewProps {
   onSelectPlace: (id: string) => void;
   onBoundsChange: (bbox: BoundingBox) => void;
   resizeTrigger?: unknown;
+  heatmapPoints?: HeatmapPoints | null;
 }
 
-export function MapView({ places, selectedPlaceId, onSelectPlace, onBoundsChange, resizeTrigger }: MapViewProps) {
+export function MapView({
+  places,
+  selectedPlaceId,
+  onSelectPlace,
+  onBoundsChange,
+  resizeTrigger,
+  heatmapPoints,
+}: MapViewProps) {
   return (
     <MapContainer
       center={INITIAL_CENTER}
@@ -32,6 +42,13 @@ export function MapView({ places, selectedPlaceId, onSelectPlace, onBoundsChange
         maxZoom={20}
       />
       <BoundsWatcher onBoundsChange={onBoundsChange} />
+      {heatmapPoints && (
+        <HeatmapLayer
+          positivePoints={heatmapPoints.positive}
+          negativePoints={heatmapPoints.negative}
+          neutralPoints={heatmapPoints.neutral}
+        />
+      )}
       <ClusterGroup places={places} selectedPlaceId={selectedPlaceId} onSelectPlace={onSelectPlace} />
       <MapResizeHandler resizeTrigger={resizeTrigger} />
     </MapContainer>
