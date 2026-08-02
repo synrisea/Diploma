@@ -43,6 +43,7 @@ docker compose -f infra/docker-compose.yml up -d --build
 - [x] Comment list + submission form on place detail
 - [x] Discovered topics shown as badges on place detail (via Topics' `GET /api/topics/places/{id}`) — the first place Topics' output is actually visible to a user, not just curl
 - [x] Unified brand color token (`brand-500` etc. in `index.css`), consistent across markers and UI chrome
+- [x] Sentiment/dimension heatmap on the map (2026-08-02) — a picker (top-right) toggles "Off," "Overall sentiment," or a specific dimension (`Noise`, `Wifi`, `Safety`...). Built with `leaflet.heat`, two overlaid single-color layers (red/green) rather than one shared gradient, because a shared density gradient makes bad areas fade to nothing instead of glowing red. Weights are normalized to 0..1 per layer and `maxZoom` is pinned to the map's default zoom — `leaflet.heat` clips accumulated weight against a fixed `max` (1.0) scaled by a zoom-distance falloff, so raw comment counts without normalization rendered as a near-invisible gray smudge instead of graduated color. See `frontend/resonance-web/src/components/map/heatmapPoints.ts`.
 
 ## Topics service — built and verified (2026-07-22)
 
@@ -60,22 +61,24 @@ Shape, as built:
 
 **Label refinement is CPU-only and takes a few minutes per full recluster** (~90 clusters × ~2-3s LLM inference each). Fine since retraining is infrequent, not per-request. Both `torch` and `llama-cpp-python` are installed from CPU-only wheel indexes in the Dockerfile (`--index-url https://download.pytorch.org/whl/cpu` and `--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu`) — installing them the default way pulls CUDA wheels (hundreds of MB of unneeded GPU libraries) even on a CPU-only machine.
 
+**Dimension promotion & sentiment scoring (2026-08-02)**, feeding the heatmap above:
+- `dimensions` table: clusters get matched across retrains to a previously-promoted dimension via centroid cosine similarity (`DIMENSION_SIMILARITY_THRESHOLD`, default 0.85); a cluster with no match and `comment_count >= DIMENSION_PROMOTION_MIN_COUNT` (default 20) gets promoted as a new one. Matching is greedy per-cluster, not a true optimal assignment — acceptable since HDBSCAN clusters are usually well-separated. A dimension with no match in a given run is left untouched (not deleted), so the heatmap picker doesn't flicker between retrains.
+- Per-comment sentiment: `sentiment.py`, `distilbert-base-uncased-finetuned-sst-2-english` (binary positive/negative), stored on `comments.sentiment`, classified incrementally every poll (`classify_pending_sentiment()`) independent of the retrain threshold. Dimension-level sentiment is aggregated from real member-comment sentiment (65% threshold for positive/negative, else "mixed") — **not** self-reported by the labeling LLM. That was the original design (folded into the same JSON call as the label) but got dropped: the LLM only saw 4 sample comments, not the whole cluster, and self-reporting sentiment inside the same generation that's also asked to "generalize concepts" reintroduced the exact polarity-flip risk the labeling prompt already had to guard against.
+- `GET /api/dimensions`, `GET /api/sentiment/places` — the two heatmap data sources.
+
 **Known-fragile area**: this service has choked on stray/leftover `uvicorn` processes on port 8001 multiple times during dev (Windows doesn't always release the port cleanly between restarts). Before assuming a bug, check `netstat -ano | grep ":8001"` for more than one LISTENING PID, and identify what a PID actually is (`Get-CimInstance Win32_Process -Filter "ProcessId = X"`) before killing it — `com.docker.backend.exe` has shown up bound to that port too (harmless Docker/WSL port-proxy behavior, do NOT kill it, it takes Docker's engine down).
 
-Two natural follow-ups (don't start before confirming Topics is running well against real, not just seeded, data):
-- **Dynamic dimension promotion** — clusters that cross a threshold (e.g. 20 comments) become persistent, named "dimensions" that could power heatmap layers. Needs cross-run cluster identity matching via centroid cosine similarity (already designed, see memory).
-- **AI paragraph summaries per place** — a *different* feature than topic discovery. Topics finds categories across all comments; a paragraph summary (e.g. "Visitors appreciate the peaceful atmosphere...") reads one place's comments and asks an LLM to summarize them in prose. Not designed in detail yet.
+**AI paragraph summaries per place** remains a natural follow-up, not yet started — a *different* feature than topic discovery. Topics finds categories across all comments; a paragraph summary (e.g. "Visitors appreciate the peaceful atmosphere...") reads one place's comments and asks an LLM to summarize them in prose. Qwen2.5-3B is already loaded in the container, so this needs no new dependency — just a new prompt + function. Not designed in detail yet.
 
 ## Next step
 
-Per-place topic badges are done (2026-07-23). Not yet decided what's next — remaining options are a global "trending themes" view (aggregate across all places, not just one), dimension promotion, AI paragraph summaries, or picking up one of the deferred items below. Ask before assuming.
+Heatmap (overall + per-dimension sentiment) shipped 2026-08-02. Not yet decided what's next — remaining options are a global "trending themes" view (aggregate across all places, not just one), AI paragraph summaries per place, recency filtering on the heatmap (`comments.created_at` already exists, just needs a WHERE clause), or picking up one of the deferred items below. Ask before assuming.
 
 ## Deferred, on purpose (don't re-suggest without new information)
 
 | Item | Why deferred |
 |---|---|
 | API Gateway | Only Feedback currently duplicates Identity's JWT config — revisit once a 3rd service needs it |
-| Heatmaps | Needs dimension promotion on top of Topics (Topics itself now exists, but its clusters aren't stable/named dimensions yet) |
 | Trending / Favorites / Collections | Not started, no blocker — just not prioritized yet |
 | Comment moderation | Comments are deliberately public with no moderation — revisit at real volume or before a public demo |
 | MediatR licensing | MediatR 13+ requires a paid license for production use; still on the free dev/test tier. Options: accept the license, pin to MediatR 12.x (MIT), or drop MediatR for direct DI. Not decided. |
