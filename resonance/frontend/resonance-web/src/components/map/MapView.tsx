@@ -6,7 +6,7 @@ import { BoundsWatcher } from './BoundsWatcher';
 import { ClusterGroup } from './ClusterGroup';
 import { MapResizeHandler } from './MapResizeHandler';
 import { HeatmapLayer } from './HeatmapLayer';
-import type { HeatmapPoints } from './heatmapPoints';
+import type { SignedPoint } from './heatmapPoints';
 
 // Torgovy / Ticarət, central Baku
 const INITIAL_CENTER: [number, number] = [40.370171, 49.843383];
@@ -18,7 +18,7 @@ interface MapViewProps {
   onSelectPlace: (id: string) => void;
   onBoundsChange: (bbox: BoundingBox) => void;
   resizeTrigger?: unknown;
-  heatmapPoints?: HeatmapPoints | null;
+  heatmapPoints?: SignedPoint[] | null;
 }
 
 export function MapView({
@@ -42,13 +42,7 @@ export function MapView({
         maxZoom={20}
       />
       <BoundsWatcher onBoundsChange={onBoundsChange} />
-      {heatmapPoints && (
-        <HeatmapLayer
-          positivePoints={heatmapPoints.positive}
-          negativePoints={heatmapPoints.negative}
-          neutralPoints={heatmapPoints.neutral}
-        />
-      )}
+      {heatmapPoints && <HeatmapLayer points={heatmapPoints} />}
       <ClusterGroup places={places} selectedPlaceId={selectedPlaceId} onSelectPlace={onSelectPlace} />
       <MapResizeHandler resizeTrigger={resizeTrigger} />
     </MapContainer>
