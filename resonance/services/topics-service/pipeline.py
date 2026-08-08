@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 from collections import Counter
@@ -15,7 +16,15 @@ RETRAIN_THRESHOLD = int(os.environ.get("FEEDBACK_RETRAIN_THRESHOLD", "100"))
 DIMENSION_SIMILARITY_THRESHOLD = float(os.environ.get("DIMENSION_SIMILARITY_THRESHOLD", "0.85"))
 DIMENSION_PROMOTION_MIN_COUNT = int(os.environ.get("DIMENSION_PROMOTION_MIN_COUNT", "20"))
 
+_poll_lock = asyncio.Lock()
+
 async def poll_and_maybe_recluster() -> None:
+    if _poll_lock.locked():
+        return
+    async with _poll_lock:
+        await _poll_and_maybe_recluster()
+
+async def _poll_and_maybe_recluster() -> None:
     while True:
         with get_connection() as conn:
             after = conn.execute("SELECT last_processed_at FROM cursor WHERE id = 1").fetchone()["last_processed_at"]

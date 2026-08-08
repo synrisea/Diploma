@@ -1,10 +1,7 @@
 import json
 from pathlib import Path
 
-from llama_cpp import Llama
-
-MODEL_PATH = Path(__file__).parent / "models" / "qwen2.5-3b-instruct-q4_k_m.gguf"
-llm = Llama(model_path=str(MODEL_PATH), n_ctx=1024, verbose=False)
+from llm import llm
 
 PROMPT_TEMPLATE = (Path(__file__).parent / "prompts" / "refine_label.md").read_text()
 
