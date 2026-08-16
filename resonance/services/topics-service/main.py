@@ -96,6 +96,8 @@ def list_dimensions():
         for r in rows
     ]
 
+NEGATIVE_SCORE_WEIGHT = 2.0
+
 @app.get("/api/sentiment/places")
 def sentiment_by_place():
     with get_connection() as conn:
@@ -115,7 +117,9 @@ def sentiment_by_place():
             "positiveCount": r["positive_count"],
             "negativeCount": r["negative_count"],
             "totalCount": r["total_count"],
-            "score": (r["positive_count"] - r["negative_count"]) / r["total_count"],
+            "score": max(-1.0, min(1.0, (
+                r["positive_count"] - NEGATIVE_SCORE_WEIGHT * r["negative_count"]
+            ) / r["total_count"])),
         }
         for r in rows
     ]

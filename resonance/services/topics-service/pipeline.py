@@ -14,7 +14,7 @@ from sentiment import classify_sentiments
 
 RETRAIN_THRESHOLD = int(os.environ.get("FEEDBACK_RETRAIN_THRESHOLD", "100"))
 DIMENSION_SIMILARITY_THRESHOLD = float(os.environ.get("DIMENSION_SIMILARITY_THRESHOLD", "0.85"))
-DIMENSION_PROMOTION_MIN_COUNT = int(os.environ.get("DIMENSION_PROMOTION_MIN_COUNT", "20"))
+DIMENSION_PROMOTION_MIN_COUNT = int(os.environ.get("DIMENSION_PROMOTION_MIN_COUNT", "10"))
 
 _poll_lock = asyncio.Lock()
 
@@ -75,15 +75,21 @@ def classify_pending_sentiment(batch_size: int = 200) -> None:
             conn.executemany("UPDATE comments SET sentiment = ? WHERE id = ?", list(zip(sentiments, batch_ids)))
             conn.commit()
 
-def aggregate_sentiment(sentiments: list[str], threshold: float = 0.65) -> str:
+def aggregate_sentiment(sentiments: list[str], threshold: float = 0.65, negative_weight: float = 2.0) -> str:
+    """People write far more positive reviews than negative ones, so a real
+    problem can easily stay a minority of comments while still being genuine
+    and worth surfacing. Negative comments count double toward the threshold
+    - checked first, so a cluster with real negative signal doesn't get
+    labeled positive just because happy reviewers were more numerous."""
     sentiments = [s for s in sentiments if s]
     if not sentiments:
         return "mixed"
     total = len(sentiments)
+    weighted_negative_ratio = min(sentiments.count("negative") * negative_weight / total, 1.0)
+    if weighted_negative_ratio >= threshold:
+        return "negative"
     if sentiments.count("positive") / total >= threshold:
         return "positive"
-    if sentiments.count("negative") / total >= threshold:
-        return "negative"
     return "mixed"
 
 async def recluster(total_count: int) -> None:

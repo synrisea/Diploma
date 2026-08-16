@@ -7,21 +7,47 @@ from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 import hdbscan
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
 
-STOPWORDS = set(ENGLISH_STOP_WORDS)
+model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+
+RUSSIAN_STOP_WORDS = {
+    "и", "в", "во", "не", "что", "он", "на", "я", "с", "со", "как", "а", "то", "все", "она",
+    "так", "его", "но", "да", "ты", "к", "у", "же", "вы", "за", "бы", "по", "только", "ее",
+    "мне", "было", "вот", "от", "меня", "еще", "нет", "о", "из", "ему", "теперь", "когда",
+    "даже", "ну", "вдруг", "ли", "если", "уже", "или", "ни", "быть", "был", "него", "до",
+    "вас", "нибудь", "опять", "уж", "вам", "ведь", "там", "потом", "себя", "ничего", "ей",
+    "может", "они", "тут", "где", "есть", "надо", "ней", "для", "мы", "тебя", "их", "чем",
+    "была", "сам", "чтоб", "без", "будто", "чего", "раз", "тоже", "себе", "под", "будет",
+    "ж", "тогда", "кто", "этот", "того", "потому", "этого", "какой", "совсем", "ним",
+    "здесь", "этом", "один", "почти", "мой", "тем", "чтобы", "нее", "были", "куда", "зачем",
+    "всех", "никогда", "можно", "при", "наконец", "два", "об", "другой", "хоть", "после",
+    "над", "больше", "тот", "через", "эти", "нас", "про", "всего", "них", "какая", "много",
+    "разве", "три", "эту", "моя", "впрочем", "хорошо", "свою", "этой", "перед", "иногда",
+    "лучше", "чуть", "том", "нельзя", "такой", "им", "более", "всегда", "конечно", "всю",
+    "между", "это", "очень",
+}
+STOPWORDS = set(ENGLISH_STOP_WORDS) | RUSSIAN_STOP_WORDS
 
 MIN_DOC_FREQUENCY_RATIO = 0.15
 
 def tokenize(text: str) -> list[str]:
-    words = re.findall(r"[a-zA-Z]+", text.lower())
+    # [^\W\d_] matches any Unicode letter (Cyrillic, Azerbaijani's ə/ı/ç etc.)
+    # via Python 3's default Unicode-aware \w - plain [a-zA-Z] silently
+    # dropped every non-Latin comment from keyword extraction entirely.
+    words = re.findall(r"[^\W\d_]+", text.lower())
     return [w for w in words if w not in STOPWORDS and len(w) > 2]
 
 def embed_comments(comments: list[str]) -> np.ndarray:
     return model.encode(comments, normalize_embeddings=True)
 
 def cluster_embeddings(embeddings: np.ndarray) -> np.ndarray:
-    clusterer = hdbscan.HDBSCAN(min_cluster_size=5, metric="euclidean")
+    # cluster_selection_method="eom" (the default) optimizes for cluster
+    # stability and tends to prefer a few large, stable clusters over many
+    # granular ones - with this dataset it collapsed most positive reviews
+    # into one 279+ member "everyone is happy" blob. "leaf" selects the most
+    # fine-grained clusters in HDBSCAN's hierarchy instead, cutting the
+    # largest cluster by ~85% and roughly doubling the number found overall.
+    clusterer = hdbscan.HDBSCAN(min_cluster_size=3, metric="euclidean", cluster_selection_method="leaf")
     return clusterer.fit_predict(embeddings)
 
 def label_clusters(comments: list[str], labels: np.ndarray, top_n : int = 5) -> dict[int, list[str]]:
