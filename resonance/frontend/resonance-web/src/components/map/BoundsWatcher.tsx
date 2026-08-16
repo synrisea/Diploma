@@ -28,6 +28,12 @@ export function BoundsWatcher({ onBoundsChange }: BoundsWatcherProps) {
 
   useMapEvents({
     moveend: (event) => onBoundsChange(toBoundingBox(event.target)),
+    // Leaflet caches bounds against its container's last known size, so a
+    // map that mounts while hidden (e.g. behind the mobile List/Map toggle)
+    // reports degenerate zero-size bounds until something recomputes them.
+    // invalidateSize() emits `resize` once the container's real size is
+    // known - listen for it too, not just user-driven pan/zoom.
+    resize: (event) => onBoundsChange(toBoundingBox(event.target)),
   });
 
   return null;
