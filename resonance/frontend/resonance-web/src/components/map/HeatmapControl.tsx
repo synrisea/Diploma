@@ -29,7 +29,7 @@ export function HeatmapControl({ mode, onModeChange, dimensions }: HeatmapContro
       <select
         value={value}
         onChange={(event) => handleChange(event.target.value)}
-        className="w-full rounded border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-700 focus:border-brand-500 focus:outline-none"
+        className="w-full rounded border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-500"
       >
         <option value="off">Off</option>
         <option value="overall">Overall sentiment</option>
@@ -44,7 +44,7 @@ export function HeatmapControl({ mode, onModeChange, dimensions }: HeatmapContro
         <div className="mt-2.5 flex items-center gap-3 text-xs text-stone-500">
           {(mode.kind === 'overall' || activeDimension?.sentiment === 'positive') && (
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-[#2a78d6]" /> Positive
+              <span className="h-2 w-2 rounded-full bg-sentiment-positive" /> Positive
             </span>
           )}
           {(mode.kind === 'overall' || activeDimension?.sentiment === 'negative') && (
@@ -54,7 +54,7 @@ export function HeatmapControl({ mode, onModeChange, dimensions }: HeatmapContro
           )}
           {activeDimension?.sentiment === 'mixed' && (
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-[#898781]" /> Mixed
+              <span className="h-2 w-2 rounded-full bg-sentiment-mixed" /> Mixed
             </span>
           )}
         </div>

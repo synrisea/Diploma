@@ -82,7 +82,7 @@ export function MapPage() {
       <button
         type="button"
         onClick={() => setIsSidebarOpen((open) => !open)}
-        className={`absolute top-1/2 z-[1000] hidden h-12 w-5 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-stone-200 bg-white text-stone-400 shadow-sm transition-[left] duration-200 hover:text-stone-700 md:flex ${
+        className={`absolute top-1/2 z-[1000] hidden h-12 w-5 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-stone-200 bg-white text-stone-400 shadow-sm transition-[left] duration-200 hover:text-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 md:flex ${
           isSidebarOpen ? 'left-96' : 'left-0'
         }`}
         aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
