@@ -13,6 +13,20 @@ public static class CategoryMap
         ["leisure=park"] = "Park",
         ["tourism=museum"] = "Museum",
         ["shop=mall"] = "Shopping Mall",
+        ["shop=clothes"] = "Clothing Shop",
+        ["shop=shoes"] = "Shoe Shop",
+        ["shop=supermarket"] = "Supermarket",
+        ["shop=convenience"] = "Convenience Store",
+        ["shop=bakery"] = "Bakery",
+        ["shop=jewelry"] = "Jewelry Shop",
+        ["shop=electronics"] = "Electronics Shop",
+        ["shop=cosmetics"] = "Cosmetics Shop",
+        ["shop=books"] = "Bookshop",
+        ["shop=hairdresser"] = "Hairdresser",
+        ["shop=beauty"] = "Beauty Salon",
+        ["amenity=pharmacy"] = "Pharmacy",
+        ["amenity=bank"] = "Bank",
+        ["amenity=cinema"] = "Cinema",
     };
 
     public static string? Resolve(Dictionary<string, string> tags)

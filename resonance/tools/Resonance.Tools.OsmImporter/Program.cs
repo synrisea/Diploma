@@ -27,7 +27,7 @@ var overpassEndpoint = config["Overpass:Endpoint"] ?? "https://overpass-api.de/a
 Console.WriteLine("Querying Overpass API...");
 var query = OverpassQueryBuilder.Build(bbox);
 
-using var http = new HttpClient();
+using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(220) };
 http.DefaultRequestHeaders.UserAgent.ParseAdd("ResonanceOsmImporter/1.0");
 
 var response = await http.PostAsync(overpassEndpoint, new StringContent(query, Encoding.UTF8, "text/plain"));

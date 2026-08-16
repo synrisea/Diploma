@@ -9,7 +9,7 @@ public static class OverpassQueryBuilder
         var bboxStr = $"{bbox.MinLat},{bbox.MinLng},{bbox.MaxLat},{bbox.MaxLng}";
         var sb = new StringBuilder();
 
-        sb.AppendLine("[out:json][timeout:60];");
+        sb.AppendLine("[out:json][timeout:180];");
         sb.AppendLine("(");
 
         foreach(var tagPair in CategoryMap.TagToCategory.Keys)
