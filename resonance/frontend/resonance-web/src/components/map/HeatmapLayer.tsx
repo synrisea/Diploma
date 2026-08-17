@@ -7,26 +7,15 @@ interface HeatmapLayerProps {
   points: SignedPoint[];
 }
 
-// Each point spreads its signed weight into nearby pixels with a Gaussian
-// falloff (smooth by construction, no hard edge at the cutoff) and every
-// point's contribution is summed into ONE signed grid — unlike two
-// independently alpha-blended canvases, a place with both positive and
-// negative comments nets out to its true combined value here instead of
-// whichever layer happened to be more opaque at that pixel.
 const RADIUS = 26;
 const SIGMA = RADIUS / 3;
 const PEAK_ALPHA = 0.75;
-// Normalizing by the single strongest pixel lets one outlier location crush
-// the visible contrast for the whole map (with ~400 places, that's common).
-// Normalize against the 90th percentile of nonzero magnitude instead, and
-// clamp anything above it to full saturation.
+
 const NORMALIZE_PERCENTILE = 0.9;
 
-// Diverging pair: brand orange (negative) <-> neutral gray <-> blue
-// (positive), matching the app's palette instead of a generic red/green.
-const NEGATIVE_RGB: [number, number, number] = [225, 85, 46]; // #e1552e
-const NEUTRAL_RGB: [number, number, number] = [137, 135, 129]; // #898781
-const POSITIVE_RGB: [number, number, number] = [42, 120, 214]; // #2a78d6
+const NEGATIVE_RGB: [number, number, number] = [239, 91, 78]; // #ef5b4e
+const NEUTRAL_RGB: [number, number, number] = [156, 145, 127]; // #9c917f
+const POSITIVE_RGB: [number, number, number] = [74, 208, 194]; // #4ad0c2
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
@@ -103,11 +92,6 @@ export function HeatmapLayer({ points }: HeatmapLayerProps) {
       for (let i = 0; i < grid.length; i++) {
         if (grid[i] === 0) continue;
         const v = grid[i] / normCeiling;
-        // Most places have a mix of positive and negative comments, so their
-        // net signed value sits close to zero even with plenty of underlying
-        // activity. A linear alpha would render that as near-invisible; a
-        // sqrt stretch keeps weak-but-real signal visible without changing
-        // which places read as strongly one-sided (v = ±1 is unaffected).
         const alpha = Math.sqrt(Math.min(Math.abs(v), 1)) * PEAK_ALPHA;
         if (alpha < 0.02) continue;
         const [r, g, b] = colorForValue(v);

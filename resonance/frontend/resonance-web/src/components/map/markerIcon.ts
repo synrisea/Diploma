@@ -1,30 +1,42 @@
 import L from 'leaflet';
 
-// Default Leaflet marker images don't resolve correctly through Vite's asset
-// pipeline, so pins are built as small inline SVG divIcons instead. This also
-// lets each pin carry its category color directly.
 const iconCache = new Map<string, L.DivIcon>();
+
+function hexToRgb(hex: string): string {
+  const normalized = hex.replace('#', '');
+  const r = parseInt(normalized.substring(0, 2), 16);
+  const g = parseInt(normalized.substring(2, 4), 16);
+  const b = parseInt(normalized.substring(4, 6), 16);
+  return `${r}, ${g}, ${b}`;
+}
 
 export function createPinIcon(color: string, selected: boolean): L.DivIcon {
   const cacheKey = `${color}-${selected}`;
   const cached = iconCache.get(cacheKey);
   if (cached) return cached;
 
-  const size = selected ? 34 : 26;
-  const svg = `
-    <svg width="${size}" height="${size}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 0C7.03 0 3 4.03 3 9c0 6.75 9 15 9 15s9-8.25 9-15c0-4.97-4.03-9-9-9z"
-            fill="${color}" stroke="white" stroke-width="1.2"/>
-      <circle cx="12" cy="9" r="3.4" fill="white"/>
-    </svg>
+  const size = selected ? 16 : 11;
+  const glow = hexToRgb(color);
+
+  const html = `
+    <span style="position:relative; display:block; width:${size}px; height:${size}px;">
+      ${
+        selected
+          ? `<span class="resonance-pin-ring" style="--pulse-color: rgb(${glow}); position:absolute; inset:-7px; border-radius:9999px;"></span>`
+          : ''
+      }
+      <span style="
+        position:absolute; inset:0; border-radius:9999px; background:${color};
+        box-shadow: 0 0 0 2px rgba(11,10,7,0.92)${selected ? `, 0 0 14px 3px rgba(${glow}, 0.55)` : ''};
+      "></span>
+    </span>
   `;
 
   const icon = L.divIcon({
-    html: svg,
+    html,
     className: 'resonance-marker',
     iconSize: [size, size],
-    iconAnchor: [size / 2, size],
-    popupAnchor: [0, -size],
+    iconAnchor: [size / 2, size / 2],
   });
 
   iconCache.set(cacheKey, icon);

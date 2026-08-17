@@ -30,11 +30,11 @@ export function CommentForm({ placeId }: { placeId: string }) {
         rows={3}
         maxLength={2000}
         required
-        className="rounded-md border border-stone-300 px-3 py-2 text-sm placeholder:text-stone-400 focus:border-brand-500 focus:outline-2 focus:outline-brand-500 focus:-outline-offset-1"
+        className="rounded-xl border border-stone-900/10 bg-stone-900/[0.03] px-3 py-2 text-sm text-stone-900 placeholder:text-stone-500 focus:border-brand-500 focus:outline-2 focus:outline-brand-500 focus:-outline-offset-1"
       />
 
       {submitComment.isError && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="rounded-xl border border-sentiment-negative/25 bg-sentiment-negative/10 px-3 py-2 text-sm text-sentiment-negative">
           {submitComment.error instanceof Error ? submitComment.error.message : 'Something went wrong.'}
         </p>
       )}
@@ -42,7 +42,7 @@ export function CommentForm({ placeId }: { placeId: string }) {
       <button
         type="submit"
         disabled={submitComment.isPending}
-        className="self-start rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
+        className="self-start rounded-full bg-brand-500 px-4 py-2 text-sm font-medium text-brand-ink transition-colors hover:bg-brand-600 disabled:opacity-50"
       >
         {submitComment.isPending ? 'Submitting…' : 'Submit comment'}
       </button>

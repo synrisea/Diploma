@@ -124,7 +124,9 @@ async def recluster(total_count: int) -> None:
             sentiment = aggregate_sentiment(member_sentiments)
 
             refined = refine_label(keywords, cluster_samples.get(cluster_id, []))
-            label = refined.title() if refined else (keywords[0].capitalize() if keywords else "Uncategorized")
+            if not refined and not keywords:
+                continue
+            label = refined.title() if refined else keywords[0].capitalize()
 
             conn.execute(
                 "INSERT INTO topics (label, keywords, comment_count, place_ids, computed_at) VALUES (?, ?, ?, ?, ?)",

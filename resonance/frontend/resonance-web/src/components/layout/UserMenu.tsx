@@ -22,7 +22,7 @@ export function UserMenu() {
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-sm font-semibold text-white transition-colors hover:bg-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+        className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 font-display text-sm font-medium text-brand-ink transition-colors hover:bg-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label="Account menu"
@@ -41,13 +41,13 @@ export function UserMenu() {
           />
           <div
             role="menu"
-            className="absolute right-0 top-11 z-[1100] w-56 rounded-md border border-stone-200 bg-white py-1.5 shadow-lg"
+            className="absolute right-0 top-12 z-[1100] w-56 rounded-2xl border border-stone-900/10 bg-panel/95 py-1.5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
           >
-            <div className="px-3 py-2">
+            <div className="px-3.5 py-2.5">
               <p className="truncate text-sm font-medium text-stone-900">{displayName}</p>
-              <p className="truncate text-xs text-stone-500">{email}</p>
+              <p className="truncate font-mono text-xs text-stone-500">{email}</p>
             </div>
-            <div className="my-1 border-t border-stone-200" />
+            <div className="my-1 border-t border-stone-900/10" />
             <button
               type="button"
               role="menuitem"
@@ -55,7 +55,7 @@ export function UserMenu() {
                 setIsOpen(false);
                 logout();
               }}
-              className="block w-full px-3 py-2 text-left text-sm text-stone-600 hover:bg-stone-50 hover:text-stone-900"
+              className="block w-full px-3.5 py-2.5 text-left text-sm text-stone-600 transition-colors hover:bg-stone-900/5 hover:text-stone-900"
             >
               Log out
             </button>

@@ -15,46 +15,56 @@ export function HeatmapControl({ mode, onModeChange, dimensions }: HeatmapContro
   );
 
   const activeDimension = mode?.kind === 'dimension' ? sortedDimensions.find((d) => d.id === mode.dimensionId) : null;
-  const value = mode === null ? 'off' : mode.kind === 'overall' ? 'overall' : `dimension:${mode.dimensionId}`;
 
-  const handleChange = (next: string) => {
-    if (next === 'off') return onModeChange(null);
-    if (next === 'overall') return onModeChange({ kind: 'overall' });
-    onModeChange({ kind: 'dimension', dimensionId: Number(next.split(':')[1]) });
-  };
+  const pillClass = (active: boolean) =>
+    `shrink-0 rounded-full border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-500 ${
+      active
+        ? 'border-brand-500 bg-brand-500 text-brand-ink'
+        : 'border-stone-900/15 bg-stone-900/5 text-stone-500 hover:border-brand-500/40 hover:text-stone-900'
+    }`;
 
   return (
-    <div className="absolute right-4 top-4 z-[1000] w-56 rounded-md border border-stone-200 bg-white p-3 shadow-sm">
-      <label className="mb-1.5 block text-xs font-medium text-stone-500">Heatmap</label>
-      <select
-        value={value}
-        onChange={(event) => handleChange(event.target.value)}
-        className="w-full rounded border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-500"
-      >
-        <option value="off">Off</option>
-        <option value="overall">Overall sentiment</option>
+    <div className="w-48 p-3.5 sm:w-72">
+      <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-stone-500">Heatmap</p>
+
+      <div className="flex max-h-48 flex-wrap gap-1.5 overflow-y-auto">
+        <button type="button" onClick={() => onModeChange(null)} className={pillClass(mode === null)}>
+          Off
+        </button>
+        <button
+          type="button"
+          onClick={() => onModeChange({ kind: 'overall' })}
+          className={pillClass(mode?.kind === 'overall')}
+        >
+          Overall
+        </button>
         {sortedDimensions.map((dimension) => (
-          <option key={dimension.id} value={`dimension:${dimension.id}`}>
-            {dimension.label} ({dimension.commentCount})
-          </option>
+          <button
+            key={dimension.id}
+            type="button"
+            onClick={() => onModeChange({ kind: 'dimension', dimensionId: dimension.id })}
+            className={pillClass(mode?.kind === 'dimension' && mode.dimensionId === dimension.id)}
+          >
+            {dimension.label}
+          </button>
         ))}
-      </select>
+      </div>
 
       {mode !== null && (
-        <div className="mt-2.5 flex items-center gap-3 text-xs text-stone-500">
+        <div className="mt-3 flex items-center gap-3 border-t border-stone-900/10 pt-2.5 font-mono text-[10px] text-stone-500">
           {(mode.kind === 'overall' || activeDimension?.sentiment === 'positive') && (
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-sentiment-positive" /> Positive
+            <span className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-sentiment-positive" /> Positive
             </span>
           )}
           {(mode.kind === 'overall' || activeDimension?.sentiment === 'negative') && (
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-brand-500" /> Negative
+            <span className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-sentiment-negative" /> Negative
             </span>
           )}
           {activeDimension?.sentiment === 'mixed' && (
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-sentiment-mixed" /> Mixed
+            <span className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-sentiment-mixed" /> Mixed
             </span>
           )}
         </div>

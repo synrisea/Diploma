@@ -1,13 +1,33 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-brand-50: #fcede6;
-  --color-brand-100: #f8d5c4;
-  --color-brand-500: #e1552e;
-  --color-brand-600: #c8401e;
+  --font-display: 'IBM Plex Serif', Georgia, 'Iowan Old Style', serif;
+  --font-sans: 'IBM Plex Sans', 'Segoe UI', -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  --color-stone-50: #0b0a07;
+  --color-stone-100: #141210;
+  --color-stone-200: #1f1c17;
+  --color-stone-300: #332e26;
+  --color-stone-400: #56503f;
+  --color-stone-500: #9c917f;
+  --color-stone-600: #b9ad98;
+  --color-stone-700: #d6ccbc;
+  --color-stone-800: #e8e0d2;
+  --color-stone-900: #f2ebe0;
+
+  --color-ground: #0b0a07;
+  --color-ground-2: #121009;
+  --color-panel: #1c1811;
+
+  --color-brand-50: #2a1c12;
+  --color-brand-100: #3a2416;
+  --color-brand-500: #ff6a39;
+  --color-brand-600: #e2551f;
   --color-brand-700: #a8320f;
-  --color-sentiment-positive: #2a78d6;
-  --color-sentiment-mixed: #898781;
+  --color-brand-ink: #1a0d05;
+  --color-sentiment-positive: #4ad0c2;
+  --color-sentiment-negative: #ef5b4e;
+  --color-sentiment-mixed: #c9a15f;
 }
 
 html,
@@ -18,18 +38,34 @@ body,
 }
 
 body {
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
-  color-scheme: light;
+  font-family: var(--font-sans);
+  background: var(--color-ground);
+  color: var(--color-stone-900);
+  color-scheme: dark;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-brand-500) 35%, transparent);
+  color: var(--color-stone-900);
+}
+
+.app-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .leaflet-marker-icon.resonance-marker {
   background: none;
   border: none;
+}
+
+.leaflet-container {
+  background: var(--color-ground);
+  font-family: var(--font-sans);
 }
 
 .leaflet-container.leaflet-grab {
@@ -38,4 +74,75 @@ body {
 .leaflet-container.leaflet-grab:active,
 .leaflet-dragging .leaflet-container {
   cursor: move;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid color-mix(in srgb, var(--color-stone-900) 12%, transparent) !important;
+  border-radius: 9999px !important;
+  overflow: hidden;
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6) !important;
+}
+.leaflet-control-zoom a {
+  background: color-mix(in srgb, var(--color-panel) 92%, transparent) !important;
+  color: var(--color-stone-700) !important;
+  border: none !important;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+.leaflet-control-zoom a:hover {
+  background: var(--color-panel) !important;
+  color: var(--color-brand-500) !important;
+}
+.leaflet-control-zoom-in {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-stone-900) 10%, transparent) !important;
+}
+
+.leaflet-control-attribution {
+  background: color-mix(in srgb, var(--color-ground) 80%, transparent) !important;
+  color: var(--color-stone-500) !important;
+  border-radius: 8px 0 0 0;
+}
+.leaflet-control-attribution a {
+  color: var(--color-stone-400) !important;
+}
+
+@keyframes resonance-pulse {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.resonance-pin-ring {
+  border: 1.5px solid var(--pulse-color, var(--color-brand-500));
+  animation: resonance-pulse 1.8s ease-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes signal-ring-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(2.7);
+    opacity: 0;
+  }
+}
+
+.signal-ring {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: signal-ring-pulse 6s ease-out infinite;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resonance-pin-ring,
+  .signal-ring {
+    animation: none;
+  }
 }
