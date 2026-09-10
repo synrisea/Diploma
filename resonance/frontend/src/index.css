@@ -140,9 +140,28 @@ body {
   will-change: transform, opacity;
 }
 
+@keyframes route-leg-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.route-leg {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: route-leg-draw 0.6s ease-out forwards;
+  animation-delay: var(--leg-delay, 0s);
+  filter: drop-shadow(0 0 4px rgba(255, 106, 57, 0.6));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .resonance-pin-ring,
   .signal-ring {
     animation: none;
+  }
+
+  .route-leg {
+    animation: none;
+    stroke-dashoffset: 0;
   }
 }

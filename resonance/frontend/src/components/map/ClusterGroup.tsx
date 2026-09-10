@@ -13,9 +13,6 @@ interface ClusterGroupProps {
   onSelectPlace: (id: string) => void;
 }
 
-// react-leaflet has no first-class support for leaflet.markercluster, so this
-// bridges the two worlds: create the cluster layer once, then imperatively
-// sync its markers whenever `places` (or the selection) changes.
 export function ClusterGroup({ places, selectedPlaceId, onSelectPlace }: ClusterGroupProps) {
   const map = useMap();
   const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);

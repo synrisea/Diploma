@@ -2,8 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { getPlacesInBoundingBox } from '../api/places';
 import type { BoundingBox } from '../types/place';
 
-// Round to ~11m precision so tiny sub-pixel pans reuse the same cached query
-// instead of firing a new request on every map frame.
 function roundBbox(bbox: BoundingBox): BoundingBox {
   const round = (value: number) => Math.round(value * 10000) / 10000;
   return {

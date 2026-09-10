@@ -3,6 +3,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useHeatmap } from '../../heatmap/HeatmapContext';
 import { useDimensions } from '../../hooks/useDimensions';
 import { HeatmapControl } from '../map/HeatmapControl';
+import { RouteSearchBar } from '../route/RouteSearchBar';
 import { Logo } from './Logo';
 import { UserMenu } from './UserMenu';
 import { HeaderDropdown } from './HeaderDropdown';
@@ -71,10 +72,13 @@ export function Header() {
           >
             <HeatmapControl mode={mode} onModeChange={setMode} dimensions={dimensions} />
           </HeaderDropdown>
+
+          <div className="h-4 w-px bg-stone-900/10" />
+          <RouteSearchBar />
         </>
       )}
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         <HeaderDropdown
           label="Settings"
           triggerClassName="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"

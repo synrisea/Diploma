@@ -7,13 +7,10 @@ export type HeatmapMode = { kind: 'overall' } | { kind: 'dimension'; dimensionId
 export interface SignedPoint {
   lat: number;
   lng: number;
-  weight: number; // 0..1, magnitude only
-  sign: -1 | 0 | 1; // -1 negative, 0 neutral/mixed, 1 positive
+  weight: number;
+  sign: -1 | 0 | 1;
 }
 
-// A single shared max across both signs, so "the most positive place" and
-// "the most negative place" stay comparable in magnitude to each other
-// instead of each side being independently stretched to fill 0..1.
 function normalize(points: SignedPoint[]): SignedPoint[] {
   const max = Math.max(...points.map((p) => p.weight), 0);
   if (max === 0) return [];

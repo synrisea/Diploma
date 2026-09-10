@@ -14,7 +14,7 @@ export function PlaceList({ places, isLoading, isError, selectedPlaceId, onSelec
     <div className="flex h-full flex-col">
       <div className="border-b border-stone-900/10 px-4 py-3.5">
         <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-stone-500 tabular-nums">
-          {isLoading ? 'Reading signal…' : `${places.length} place${places.length === 1 ? '' : 's'} in view`}
+          {isLoading ? 'Reading signal…' : `${places.length} place${places.length === 1 ? '' : 's'}`}
         </p>
       </div>
 

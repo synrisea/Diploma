@@ -13,15 +13,14 @@ const PEAK_ALPHA = 0.75;
 
 const NORMALIZE_PERCENTILE = 0.9;
 
-const NEGATIVE_RGB: [number, number, number] = [239, 91, 78]; // #ef5b4e
-const NEUTRAL_RGB: [number, number, number] = [156, 145, 127]; // #9c917f
-const POSITIVE_RGB: [number, number, number] = [74, 208, 194]; // #4ad0c2
+const NEGATIVE_RGB: [number, number, number] = [239, 91, 78];
+const NEUTRAL_RGB: [number, number, number] = [156, 145, 127];
+const POSITIVE_RGB: [number, number, number] = [74, 208, 194];
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-// v in [-1, 1]: interpolates neutral -> positive for v >= 0, neutral -> negative for v < 0.
 function colorForValue(v: number): [number, number, number] {
   const pole = v >= 0 ? POSITIVE_RGB : NEGATIVE_RGB;
   const t = Math.min(Math.abs(v), 1);
@@ -106,7 +105,6 @@ export function HeatmapLayer({ points }: HeatmapLayerProps) {
 
     const handleZoomAnim = (e: L.ZoomAnimEvent) => {
       const scale = map.getZoomScale(e.zoom, map.getZoom());
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const offset = (map as any)._latLngToNewLayerPoint(map.getBounds().getNorthWest(), e.zoom, e.center);
       L.DomUtil.setTransform(canvas, offset, scale);
     };
