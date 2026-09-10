@@ -9,6 +9,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from db import init_db, get_connection
+from itinerary import plan_itinerary
+from models import PlanItineraryRequest
 from pipeline import poll_and_maybe_recluster
 
 load_dotenv()
@@ -123,3 +125,8 @@ def sentiment_by_place():
         }
         for r in rows
     ]
+
+@app.post("/api/itinerary/plan")
+def plan_itinerary_endpoint(body: PlanItineraryRequest):
+    matched_ids = plan_itinerary(body.wish, [c.model_dump() for c in body.candidatePlaces])
+    return {"placeIds": matched_ids}
