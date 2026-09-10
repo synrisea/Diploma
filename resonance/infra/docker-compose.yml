@@ -77,6 +77,13 @@ services:
       - resonance_topics_data:/data
     depends_on:
       - feedback-api
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
 volumes:
   resonance_postgres_data:
