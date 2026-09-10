@@ -2,19 +2,6 @@
 
 Last updated: 2026-09-10. This file is the source of truth for "what's done and what's next" — update it as things change instead of relying on memory.
 
-## ⚠️ Read this first: uncommitted work in the working tree
-
-The working tree currently has substantial **uncommitted** changes on top of the last commit (`29bd760 Redesign`, 2026-08-18). None of this is lost — it's just sitting unstaged/untracked in the checkout. Do **not** run `git checkout .`, `git reset --hard`, or `git clean` without stashing/committing first, or all of the below is gone.
-
-What's uncommitted right now:
-- **The entire frontend moved**: `resonance/frontend/resonance-web/` → `resonance/frontend/` (the `resonance-web` subfolder was dropped). Git sees this as the old path fully deleted + the new path fully untracked, since it was never staged as a rename. Everything below assumes the **new** path (`resonance/frontend/`).
-- **The whole route-planning feature** (frontend + backend) — see below, entirely new and untested against a committed baseline.
-- **GPU acceleration for `topics-service`'s LLM** — `Dockerfile`, `llm.py`, `main.py`, `requirements.txt`, `infra/docker-compose.yml` all modified.
-- A `frontend` service was added to `infra/docker-compose.yml` (frontend containerization, started but not finished — see "Known rough edges").
-- Untracked `.impeccable/` directories at repo root and under `resonance/frontend/` — leftover tool state from design-skill runs, not project files, safe to ignore/delete, don't commit them.
-
-Recommendation for whoever picks this up: review `git status` / `git diff` and commit this in a few logical chunks (frontend move, route-planning feature, GPU work) before starting new work, so there's a real baseline to diff against again.
-
 ## Architecture at a glance
 
 | Service | Tech | Host port | Purpose |
@@ -23,7 +10,7 @@ Recommendation for whoever picks this up: review `git status` / `git diff` and c
 | `identity-service` | ASP.NET Core | 5076 | Register/login, issues JWTs |
 | `feedback-service` | ASP.NET Core | 5066 | Free-text comments per place, JWT-protected submit, public read |
 | `topics-service` | Python, FastAPI | 8010 (container listens on 8001 internally — host port moved off 8001 due to a persistent, unexplained conflict with Docker Desktop's own backend process on this machine) | AI topic discovery from comments, sentiment/dimension scoring, and (new) LLM-driven route planning. GPU-accelerated (CUDA) on this dev machine — see below. |
-| `frontend` | React, Vite, Leaflet | 5173 | The app. **Path changed** (was `frontend/resonance-web`, now `frontend/` directly, uncommitted — see above). Has a `Dockerfile` and a `docker-compose.yml` entry now (experimental, not yet fixed up — see "Known rough edges"); still fine to run locally via `npm run dev` too. |
+| `frontend` | React, Vite, Leaflet | 5173 | The app. Lives at `frontend/` directly (moved out of `frontend/resonance-web/`). Has a `Dockerfile` and a `docker-compose.yml` entry; still fine to run locally via `npm run dev` too. |
 
 No API gateway yet (deliberate — see "Deferred, on purpose"). The frontend calls each service directly.
 
@@ -58,7 +45,7 @@ docker compose -f infra/docker-compose.yml up -d --build
 - [x] Unified brand color token (`brand-500` etc. in `index.css`), consistent across markers and UI chrome
 - [x] Sentiment/dimension heatmap on the map (2026-08-02) — a picker (top-right) toggles "Off," "Overall sentiment," or a specific dimension (`Noise`, `Wifi`, `Safety`...). Built with `leaflet.heat`, two overlaid single-color layers (red/green) rather than one shared gradient, because a shared density gradient makes bad areas fade to nothing instead of glowing red. Weights are normalized to 0..1 per layer and `maxZoom` is pinned to the map's default zoom — `leaflet.heat` clips accumulated weight against a fixed `max` (1.0) scaled by a zoom-distance falloff, so raw comment counts without normalization rendered as a near-invisible gray smudge instead of graduated color. See `frontend/src/components/map/heatmapPoints.ts`.
 - [x] Full visual redesign (`29bd760`, committed) — dark ground, glow/glassmorphism, monospace uppercase micro-labels, a "signal" metaphor replacing generic "comment" language, new category color palette. Two earlier redesign attempts were explicitly rejected by product feedback (too much glow/decoration) before this one landed — don't re-introduce heavy shadow/gradient effects without checking first.
-- [x] **Route planning** (uncommitted, new) — a user types a free-text wish into a search bar in the header (`RouteSearchBar` → global `RouteProvider`/`RouteContext`), Topics' LLM matches it against every place in the district (not just what's on screen) and returns an ordered subset, the frontend runs a small fixed-start TSP over that subset (`lib/routeOrdering.ts`, exact for ≤8 stops, nearest-neighbor above that), and the result renders as numbered pins plus a glowing polyline that draws itself onto the map leg-by-leg (`RoutePolyline.tsx`, CSS `stroke-dashoffset`, respects `prefers-reduced-motion`). The map now loads the **whole district** at once (`lib/mapConstants.ts`'s `DISTRICT_BOUNDS`, ~340 places) rather than only the visible bbox, specifically so route planning always has the full place set to search — see "Key decisions" for the tradeoffs this caused and fixed.
+- [x] **Route planning** — a user types a free-text wish into a search bar in the header (`RouteSearchBar` → global `RouteProvider`/`RouteContext`), Topics' LLM matches it against every place in the district (not just what's on screen) and returns an ordered subset, the frontend runs a small fixed-start TSP over that subset (`lib/routeOrdering.ts`, exact for ≤8 stops, nearest-neighbor above that), and the result renders as numbered pins plus a glowing polyline that draws itself onto the map leg-by-leg (`RoutePolyline.tsx`, CSS `stroke-dashoffset`, respects `prefers-reduced-motion`). The map now loads the **whole district** at once (`lib/mapConstants.ts`'s `DISTRICT_BOUNDS`, ~340 places) rather than only the visible bbox, specifically so route planning always has the full place set to search — see "Key decisions" for the tradeoffs this caused and fixed.
 
 ## Topics service — built and verified (2026-07-22)
 
@@ -85,22 +72,20 @@ Shape, as built:
 
 **AI paragraph summaries per place** remains a natural follow-up, not yet started — a *different* feature than topic discovery. Topics finds categories across all comments; a paragraph summary (e.g. "Visitors appreciate the peaceful atmosphere...") reads one place's comments and asks an LLM to summarize them in prose. Qwen2.5-3B is already loaded in the container, so this needs no new dependency — just a new prompt + function. Not designed in detail yet.
 
-### Route planning (uncommitted, new — 2026-08/09)
+### Route planning (2026-08/09)
 
 Reuses the same `llm.py` singleton as label refinement/sentiment rather than loading a second model copy. Shape:
 1. `POST /api/itinerary/plan` (`main.py`, `itinerary.py`, `models.py`, `prompts/plan_itinerary.md`) takes `{wish, candidatePlaces}` and returns `{placeIds}`.
 2. Candidates are numbered `1..N` in the prompt and the model returns **indices**, not raw place IDs — a small local model echoing UUIDs back verbatim was unreliable; indices get mapped back to real IDs server-side, and any index outside `1..N` is dropped rather than trusted. This is the anti-hallucination guard — the model's raw output is never passed through unchecked.
 3. Client-side TSP ordering (`frontend/src/lib/routeOrdering.ts`) — deliberately **not** done via a routing engine (OSRM etc.) — Torgovy is small and walkable, so haversine straight-line distance is treated as a good-enough approximation. Flagged as a known simplification, not re-litigated.
 
-**GPU acceleration (uncommitted, new, machine-specific)**: `topics-service`'s `Dockerfile` was switched from a CPU-only prebuilt `llama-cpp-python` wheel to building it from source (`CMAKE_ARGS="-DGGML_CUDA=on"`) against an `nvidia/cuda:12.4.1-devel-ubuntu22.04` base image, with `n_gpu_layers=-1` in `llm.py` to offload every layer. `infra/docker-compose.yml`'s `topics-api` service requests a GPU via `deploy.resources.reservations.devices` (nvidia driver). This cut a full-district route-planning request (candidates = ~340 places, ~4.3k prompt tokens) from ~35s on CPU to ~0.2-0.4s on this machine's RTX 5070, after a one-time ~8s CUDA kernel JIT-compile that happens automatically at container startup (`llm.py` runs a couple of throwaway warm-up completions at import time specifically so no real user request pays that cost).
+**GPU acceleration (machine-specific)**: `topics-service`'s `Dockerfile` was switched from a CPU-only prebuilt `llama-cpp-python` wheel to building it from source (`CMAKE_ARGS="-DGGML_CUDA=on"`) against an `nvidia/cuda:12.4.1-devel-ubuntu22.04` base image, with `n_gpu_layers=-1` in `llm.py` to offload every layer. `infra/docker-compose.yml`'s `topics-api` service requests a GPU via `deploy.resources.reservations.devices` (nvidia driver). This cut a full-district route-planning request (candidates = ~340 places, ~4.3k prompt tokens) from ~35s on CPU to ~0.2-0.4s on this machine's RTX 5070, after a one-time ~8s CUDA kernel JIT-compile that happens automatically at container startup (`llm.py` runs a couple of throwaway warm-up completions at import time specifically so no real user request pays that cost).
 
 ⚠️ **This makes `topics-service` require an NVIDIA GPU + `nvidia-container-toolkit` to build/run at all right now** — there is no CPU-only fallback path left in the Dockerfile (the old one was replaced, not kept as an alternative). If this needs to run on a machine without a compatible GPU (a different dev machine, a grading/demo machine, CI), either restore a CPU-only build path (conditional Dockerfile / build arg) or accept GPU as a hard requirement going forward. Worth deciding deliberately rather than discovering it at the worst time.
 
 ## Next step
 
-Not yet decided. Two candidates, roughly in order of what was actually asked for:
-1. **The shared-intention connections feature** ("Feature 2" from an approved-but-unimplemented UX proposal — see below) — the originally-requested companion to route planning, not started at all yet.
-2. Finish the frontend containerization that was started but left half-done (see "Known rough edges"), and get the uncommitted work above into real commits.
+**The shared-intention connections feature** ("Feature 2" from an approved-but-unimplemented UX proposal — see below) — the originally-requested companion to route planning, not started at all yet.
 
 Older ideas still on the table, lower priority: a global "trending themes" view, AI paragraph summaries per place, recency filtering on the heatmap. Ask before assuming which one matters most.
 
@@ -110,11 +95,6 @@ A full UX/IA proposal was written and approved (place page → "Want to go?" →
 - New `connections-service` (mirrors the existing ASP.NET Clean Architecture + MediatR pattern, own Postgres DB) — entities roughly `VisitIntent` (user + place + coarse time bucket), `ConnectionRequest` (mutual accept/decline), `Conversation`/`Message`.
 - Chat via polling (React Query `refetchInterval`), not a new SignalR/WebSocket dependency — nothing in this stack does real-time today, and the user explicitly chose polling over adding that infra.
 - UI: one more section in the existing place-detail panel (not a separate "social" surface), a lightweight inbox off the header's account menu, reusing existing visual tokens rather than generic social-app patterns (no avatar grids, no card walls).
-
-## Known rough edges
-
-- **Frontend containerization is half-done.** `infra/docker-compose.yml`'s new `frontend` service sets `VITE_PLACES_API_URL`/`VITE_IDENTITY_API_URL`, but the actual frontend code reads `VITE_API_BASE_URL`/`VITE_IDENTITY_API_BASE_URL`/`VITE_FEEDBACK_API_BASE_URL`/`VITE_TOPICS_API_BASE_URL` (see `frontend/.env`) — the compose env vars don't match anything the app reads. It happens to still work today only because Vite inlines these for the *browser*, and the browser falls back to each api file's hardcoded `localhost:<port>` default, which is reachable since those ports are published to the host anyway — but that's incidental, not intentional. Fix the var names (or drop the compose service and keep running the frontend locally via `npm run dev`, which still works fine) before relying on it.
-- **`docs/PROGRESS.md` (this file) was stale for ~7 weeks** before this update — it didn't mention the visual redesign, the frontend move, or route planning until now. Keep updating it as things change; it's the one doc other sessions/agents are told to check first.
 
 ## Deferred, on purpose (don't re-suggest without new information)
 
@@ -126,7 +106,6 @@ A full UX/IA proposal was written and approved (place page → "Want to go?" →
 | MediatR licensing | MediatR 13+ requires a paid license for production use; still on the free dev/test tier. Options: accept the license, pin to MediatR 12.x (MIT), or drop MediatR for direct DI. Not decided. Would apply equally to a new `connections-service` built the same way. |
 | Shared-intention connections (Feature 2) | Fully designed/approved, not started — see "Next step" above |
 | Road-network-aware route distances | Route planning uses straight-line (haversine) distance, not real walking paths (OSRM etc.) — accepted as good-enough for Torgovy's small, walkable footprint; revisit if that stops being true |
-| Frontend Docker env vars | See "Known rough edges" — compose service sets the wrong var names, currently harmless by accident |
 
 ## Key decisions worth remembering
 
@@ -137,4 +116,4 @@ A full UX/IA proposal was written and approved (place page → "Want to go?" →
 - **Brand color** is `#E1552E` (defined as `--color-brand-*` in `index.css`), used consistently for both map markers and UI chrome — don't reintroduce Tailwind's default `rose-*` colors.
 - **The map loads the whole district, not just the visible viewport.** Changed specifically so route planning always has every place to search against, not only whatever's currently panned into view. `usePlacesInBoundingBox` is now called with a fixed `DISTRICT_BOUNDS` envelope everywhere (map + route planning share the one query/cache entry) instead of a live-updating bbox. Fine at ~340 places; would need revisiting (pagination, or reintroducing viewport scoping for the map while keeping route planning district-wide) if the dataset grows much larger.
 - **LLM candidate-matching uses numbered indices, not raw IDs, in the prompt+response.** A small local model (Qwen2.5-3B, Q4 quant) reliably drops or garbles literal UUIDs when asked to echo them back; asking for a plain integer index and mapping it back to a real ID server-side removed that failure mode entirely, at zero cost.
-- **GPU is now effectively required to run `topics-service` at a usable speed.** CPU inference for a full-district route-planning prompt (~4.3k tokens) took ~35s; the same request is ~0.2-0.4s on GPU. The Dockerfile was changed in place (CUDA build replacing the CPU build), not offered as an option — see "Known rough edges" for the portability implication.
+- **GPU is now effectively required to run `topics-service` at a usable speed.** CPU inference for a full-district route-planning prompt (~4.3k tokens) took ~35s; the same request is ~0.2-0.4s on GPU. The Dockerfile was changed in place (CUDA build replacing the CPU build), not offered as an option — see the GPU acceleration warning under Topics service above for the portability implication.
