@@ -85,6 +85,18 @@ services:
               count: 1
               capabilities: [gpu]
 
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: resonance-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_PLACES_API_URL=http://localhost:5112
+      - VITE_IDENTITY_API_URL=http://localhost:5076
+
 volumes:
   resonance_postgres_data:
   resonance_topics_data:
