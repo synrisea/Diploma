@@ -17,17 +17,19 @@ public class JwtTokenGenerator: IJwtTokenGenerator
         _configuration = configuration;
     }
 
-    public string GenerateToken(User user)
+    public (string Token, DateTime ExpiresAtUtc) GenerateToken(User user, Guid sessionId)
     {
         var jwtSection = _configuration.GetSection("Jwt");
         var secret = jwtSection["Secret"] ?? throw new InvalidOperationException("Jwt:Secret is not configured.");
-        var expiryMinutes = jwtSection.GetValue<int>("ExpiryMinutes", 1440);
+        var expiryMinutes = jwtSection.GetValue<int>("ExpiryMinutes", 15);
+        var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
 
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim("displayName", user.DisplayName),
+            new Claim("sid", sessionId.ToString()),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
 
@@ -38,10 +40,10 @@ public class JwtTokenGenerator: IJwtTokenGenerator
             issuer: jwtSection["Issuer"],
             audience: jwtSection["Audience"],
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
+            expires: expiresAt,
             signingCredentials: credentials
         );
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
     }
 }
