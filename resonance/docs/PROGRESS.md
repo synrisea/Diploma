@@ -91,10 +91,20 @@ Older ideas still on the table, lower priority: a global "trending themes" view,
 
 ### Feature 2: shared-intention connections — designed, not started
 
-A full UX/IA proposal was written and approved (place page → "Want to go?" → pick a rough time window → see others who share that intent → optionally connect → mutual acceptance → chat), explicitly **not** a dating/friend-matching feature — the place and shared intent are the point, not profiles. It was delivered as a standalone document in that chat session, not saved into this repo, so the detail isn't preserved here beyond this summary. Shape it called for, if picked back up:
-- New `connections-service` (mirrors the existing ASP.NET Clean Architecture + MediatR pattern, own Postgres DB) — entities roughly `VisitIntent` (user + place + coarse time bucket), `ConnectionRequest` (mutual accept/decline), `Conversation`/`Message`.
+A full UX/IA proposal was written and approved (place page → "Want to go?" → pick a rough time window → see others who share that intent → connect → chat), explicitly **not** a dating/friend-matching feature — the place and shared intent are the point, not profiles. The original proposal was delivered as a standalone document in an earlier chat session, not saved into this repo; the detail below is what's been preserved/refined since. Shape it called for, if picked back up:
+- New `connections-service` (mirrors the existing ASP.NET Clean Architecture + MediatR pattern, own Postgres DB) — entities roughly `VisitIntent` (user + place + coarse time bucket + optional `IntentTag`/note), `Conversation`/`Message`, plus a `Block`/mute record per user pair.
 - Chat via polling (React Query `refetchInterval`), not a new SignalR/WebSocket dependency — nothing in this stack does real-time today, and the user explicitly chose polling over adding that infra.
 - UI: one more section in the existing place-detail panel (not a separate "social" surface), a lightweight inbox off the header's account menu, reusing existing visual tokens rather than generic social-app patterns (no avatar grids, no card walls).
+
+**Revised (2026-09-12): connection flow simplified from mutual opt-in to direct chat.** The original two-step gate (send a connection request → wait for the other person to accept → only then chat) added too much friction for a geo/utility app rather than a dating app. Replaced with:
+- **Passive intent visibility**: setting a `VisitIntent` implicitly makes a user visible to others sharing the same coarse time bucket + place — no separate opt-in step. The place-detail panel shows a lightweight list/count of matching intents (display name/avatar if available, plus their intent tag) instead of a request/response wall.
+- **Direct chat initiation, no pending-request gate**: clicking "Message" on a peer's intent creates the conversation (or sends the first message) immediately — there's no `ConnectionRequest` blocking messaging until mutual acceptance. `ConnectionRequest` as an entity is dropped from the shape above; a `Block`/mute record replaces it as the safety mechanism.
+- **Safety moves into the chat itself**: Block / Decline / Mute live as an action inside the chat view for the recipient, rather than as an upfront handshake. This is the trade made instead of the mutual-accept gate — worth remembering if abuse/spam becomes a real problem later, since the original design's friction was also an implicit spam brake.
+
+**Intent context/tags**, so two matched people aren't messaging with zero context on why the other is going:
+- `VisitIntent` gets an optional `IntentTag`/note field (string, ~50-60 char cap).
+- When picking the time window on the place page, offer quick-select preset chips (e.g. coffee, remote work, sightseeing, drinks) plus free text.
+- The tag shows next to the name in the "who's going" list, and again at the top of the chat panel once a conversation starts, so both sides see the shared context immediately.
 
 ## Deferred, on purpose (don't re-suggest without new information)
 
@@ -106,6 +116,7 @@ A full UX/IA proposal was written and approved (place page → "Want to go?" →
 | MediatR licensing | MediatR 13+ requires a paid license for production use; still on the free dev/test tier. Options: accept the license, pin to MediatR 12.x (MIT), or drop MediatR for direct DI. Not decided. Would apply equally to a new `connections-service` built the same way. |
 | Shared-intention connections (Feature 2) | Fully designed/approved, not started — see "Next step" above |
 | Road-network-aware route distances | Route planning uses straight-line (haversine) distance, not real walking paths (OSRM etc.) — accepted as good-enough for Torgovy's small, walkable footprint; revisit if that stops being true |
+| ngrok deployment (this laptop as workstation) | Frontend calls 4 separate backend origins directly (baked into `.env`), so tunneling just the frontend port doesn't work — needs either a reverse proxy in front of everything (one tunnel, same-origin, doubles as the API Gateway item above) or 5 separate tunnels + CORS allow-list updates in 3 `.cs` files + topics-service's `FRONTEND_CORS_ORIGINS` every time a free-tier ngrok URL changes. Also: free-tier ngrok's browser-warning interstitial intercepts `fetch`/XHR calls too, not just page loads — needs `ngrok-skip-browser-warning: true` on requests regardless of which approach is used. Revisit when there's an actual audience to demo to. |
 
 ## Key decisions worth remembering
 
