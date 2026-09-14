@@ -4,5 +4,5 @@ namespace Resonance.Identity.Application.Common;
 
 public interface IJwtTokenGenerator
 {
-    string GenerateToken(User user);
+    (string Token, DateTime ExpiresAtUtc) GenerateToken(User user, Guid sessionId);
 }

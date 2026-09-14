@@ -7,8 +7,6 @@ namespace Resonance.Identity.Application.Auth.Register;
 
 public class RegisterHandler: IRequestHandler<RegisterCommand, AuthResponseDto>
 {
-    private const int TokenExpiryMinutes = 1440;
-
     private readonly IApplicationDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
@@ -24,21 +22,27 @@ public class RegisterHandler: IRequestHandler<RegisterCommand, AuthResponseDto>
     {
         if (request.Password.Length < 8)
             throw new ArgumentException("Password must be at least 8 characters.");
-        
+
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
         var emailTaken = await _context.Users.AnyAsync(u => u.Email == normalizedEmail, cancellationToken);
-
         if (emailTaken)
             throw new InvalidOperationException("An account with this email already exists.");
-        
-        var passwordHash = _passwordHasher.Hash(request.Password);
-        var user = new User(Guid.NewGuid(), normalizedEmail, passwordHash, request.DisplayName);
 
+        var (passwordHash, algorithm) = _passwordHasher.HashNew(request.Password);
+        var user = new User(Guid.NewGuid(), normalizedEmail, passwordHash, algorithm, request.DisplayName);
         _context.Users.Add(user);
+
+        var (refreshTokenEntity, rawRefreshToken) = RefreshTokenFactory.Create(user.Id, request.DeviceLabel, request.IpAddress);
+        _context.RefreshTokens.Add(refreshTokenEntity);
+
+        var (accessToken, accessTokenExpiresAt) = _jwtTokenGenerator.GenerateToken(user, refreshTokenEntity.Id);
+
         await _context.SaveChangesAsync(cancellationToken);
 
-        var token = _jwtTokenGenerator.GenerateToken(user);
-        return new AuthResponseDto(user.Id, user.Email, user.DisplayName, token, DateTime.UtcNow.AddMinutes(TokenExpiryMinutes));
+        return new AuthResponseDto(
+            user.Id, user.Email, user.DisplayName,
+            accessToken, accessTokenExpiresAt,
+            rawRefreshToken, refreshTokenEntity.ExpiresAt);
     }
 }

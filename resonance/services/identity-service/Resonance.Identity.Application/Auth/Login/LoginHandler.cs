@@ -6,8 +6,6 @@ namespace Resonance.Identity.Application.Auth.Login;
 
 public class LoginHandler : IRequestHandler<LoginCommand, AuthResponseDto>
 {
-    private const int TokenExpiryMinutes = 1440;
-
     private readonly IApplicationDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
@@ -24,10 +22,19 @@ public class LoginHandler : IRequestHandler<LoginCommand, AuthResponseDto>
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var user = await _context.Users.SingleOrDefaultAsync(u => u.Email == normalizedEmail, cancellationToken);
 
-        if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
+        if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash, user.PasswordHashAlgorithm))
             throw new UnauthorizedAccessException("Invalid email or password.");
         
-        var token = _jwtTokenGenerator.GenerateToken(user);
-        return new AuthResponseDto(user.Id, user.Email, user.DisplayName, token, DateTime.UtcNow.AddMinutes(TokenExpiryMinutes));
+          var (refreshTokenEntity, rawRefreshToken) = RefreshTokenFactory.Create(user.Id, request.DeviceLabel, request.IpAddress);
+        _context.RefreshTokens.Add(refreshTokenEntity);
+
+        var (accessToken, accessTokenExpiresAt) = _jwtTokenGenerator.GenerateToken(user, refreshTokenEntity.Id);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return new AuthResponseDto(
+            user.Id, user.Email, user.DisplayName,
+            accessToken, accessTokenExpiresAt,
+            rawRefreshToken, refreshTokenEntity.ExpiresAt);
     }
 }
