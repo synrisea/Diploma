@@ -49,7 +49,6 @@ await using var db = new ApplicationDbContext(dbOptions);
 
 var geometryFactory = NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
 
-// 1. Make sure every category we might need already exists
 var distinctCategoryNames = CategoryMap.TagToCategory.Values.Distinct().ToList();
 var categoryIds = await db.Categories
     .Where(c => distinctCategoryNames.Contains(c.Name))
@@ -66,7 +65,6 @@ foreach (var name in distinctCategoryNames)
 }
 await db.SaveChangesAsync();
 
-// 2. Skip anything already imported (safe to re-run)
 var existingOsmIds = await db.Places
     .Where(p => p.OsmId != null)
     .Select(p => p.OsmId!.Value)

@@ -31,9 +31,6 @@ STOPWORDS = set(ENGLISH_STOP_WORDS) | RUSSIAN_STOP_WORDS
 MIN_DOC_FREQUENCY_RATIO = 0.15
 
 def tokenize(text: str) -> list[str]:
-    # [^\W\d_] matches any Unicode letter (Cyrillic, Azerbaijani's ə/ı/ç etc.)
-    # via Python 3's default Unicode-aware \w - plain [a-zA-Z] silently
-    # dropped every non-Latin comment from keyword extraction entirely.
     words = re.findall(r"[^\W\d_]+", text.lower())
     return [w for w in words if w not in STOPWORDS and len(w) > 2]
 
@@ -41,12 +38,6 @@ def embed_comments(comments: list[str]) -> np.ndarray:
     return model.encode(comments, normalize_embeddings=True)
 
 def cluster_embeddings(embeddings: np.ndarray) -> np.ndarray:
-    # cluster_selection_method="eom" (the default) optimizes for cluster
-    # stability and tends to prefer a few large, stable clusters over many
-    # granular ones - with this dataset it collapsed most positive reviews
-    # into one 279+ member "everyone is happy" blob. "leaf" selects the most
-    # fine-grained clusters in HDBSCAN's hierarchy instead, cutting the
-    # largest cluster by ~85% and roughly doubling the number found overall.
     clusterer = hdbscan.HDBSCAN(min_cluster_size=3, metric="euclidean", cluster_selection_method="leaf")
     return clusterer.fit_predict(embeddings)
 
