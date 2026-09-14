@@ -2,6 +2,8 @@ export interface AuthResponse {
   userId: string;
   email: string;
   displayName: string;
-  token: string;
-  expiresAtUtc: string;
+  accessToken: string;
+  accessTokenExpiresAtUtc: string;
+  refreshToken: string;
+  refreshTokenExpiresAtUtc: string;
 }

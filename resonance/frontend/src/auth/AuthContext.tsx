@@ -1,8 +1,12 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import type { AuthResponse } from '../types/auth';
+import { refreshAuth } from '../api/auth';
 
 interface AuthState {
-  token: string | null;
+  accessToken: string | null;
+  accessTokenExpiresAtUtc: string | null;
+  refreshToken: string | null;
+  refreshTokenExpiresAtUtc: string | null;
   userId: string | null;
   email: string | null;
   displayName: string | null;
@@ -12,12 +16,35 @@ interface AuthContextValue extends AuthState {
   isAuthenticated: boolean;
   setAuth: (response: AuthResponse) => void;
   logout: () => void;
+  getValidAccessToken: () => Promise<string>;
 }
 
 const STORAGE_KEY = 'resonance.auth';
-const EMPTY_STATE: AuthState = { token: null, userId: null, email: null, displayName: null };
+const EMPTY_STATE: AuthState = {
+  accessToken: null,
+  accessTokenExpiresAtUtc: null,
+  refreshToken: null,
+  refreshTokenExpiresAtUtc: null,
+  userId: null,
+  email: null,
+  displayName: null,
+};
+
+const REFRESH_SKEW_MS = 30_000;
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+function toState(response: AuthResponse): AuthState {
+  return {
+    accessToken: response.accessToken,
+    accessTokenExpiresAtUtc: response.accessTokenExpiresAtUtc,
+    refreshToken: response.refreshToken,
+    refreshTokenExpiresAtUtc: response.refreshTokenExpiresAtUtc,
+    userId: response.userId,
+    email: response.email,
+    displayName: response.displayName,
+  };
+}
 
 function loadStoredAuth(): AuthState {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -25,11 +52,11 @@ function loadStoredAuth(): AuthState {
 
   try {
     const parsed = JSON.parse(raw) as AuthResponse;
-    if (new Date(parsed.expiresAtUtc) <= new Date()) {
+    if (new Date(parsed.refreshTokenExpiresAtUtc) <= new Date()) {
       localStorage.removeItem(STORAGE_KEY);
       return EMPTY_STATE;
     }
-    return { token: parsed.token, userId: parsed.userId, email: parsed.email, displayName: parsed.displayName };
+    return toState(parsed);
   } catch {
     return EMPTY_STATE;
   }
@@ -37,10 +64,13 @@ function loadStoredAuth(): AuthState {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(loadStoredAuth);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const refreshInFlight = useRef<Promise<string> | null>(null);
 
   const setAuth = (response: AuthResponse) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(response));
-    setState({ token: response.token, userId: response.userId, email: response.email, displayName: response.displayName });
+    setState(toState(response));
   };
 
   const logout = () => {
@@ -48,8 +78,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState(EMPTY_STATE);
   };
 
+  const getValidAccessToken = (): Promise<string> => {
+    const current = stateRef.current;
+
+    if (!current.refreshToken) {
+      return Promise.reject(new Error('Not authenticated.'));
+    }
+
+    const stillFresh =
+      current.accessToken !== null &&
+      current.accessTokenExpiresAtUtc !== null &&
+      new Date(current.accessTokenExpiresAtUtc).getTime() - Date.now() > REFRESH_SKEW_MS;
+
+    if (stillFresh) {
+      return Promise.resolve(current.accessToken!);
+    }
+
+    if (!refreshInFlight.current) {
+      refreshInFlight.current = refreshAuth(current.refreshToken)
+        .then((response) => {
+          setAuth(response);
+          return response.accessToken;
+        })
+        .catch((err) => {
+          logout();
+          throw err;
+        })
+        .finally(() => {
+          refreshInFlight.current = null;
+        });
+    }
+
+    return refreshInFlight.current;
+  };
+
   return (
-    <AuthContext.Provider value={{ ...state, isAuthenticated: state.token !== null, setAuth, logout }}>
+    <AuthContext.Provider
+      value={{ ...state, isAuthenticated: state.refreshToken !== null, setAuth, logout, getValidAccessToken }}
+    >
       {children}
     </AuthContext.Provider>
   );

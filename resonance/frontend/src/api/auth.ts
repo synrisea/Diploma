@@ -25,3 +25,17 @@ export function register(email: string, password: string, displayName: string): 
 export function login(email: string, password: string): Promise<AuthResponse> {
   return postAuth('/api/auth/login', { email, password });
 }
+
+export async function refreshAuth(refreshToken: string): Promise<AuthResponse> {
+  const response = await fetch(`${IDENTITY_API_BASE_URL}/api/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Session expired. Please log in again.');
+  }
+
+  return (await response.json()) as AuthResponse;
+}

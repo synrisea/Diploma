@@ -3,12 +3,12 @@ import { submitComment } from '../api/feedback';
 import { useAuth } from '../auth/AuthContext';
 
 export function useSubmitComment(placeId: string) {
-  const { token } = useAuth();
+  const { getValidAccessToken } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (comment: string) => {
-      if (!token) throw new Error('Not authenticated.');
+    mutationFn: async (comment: string) => {
+      const token = await getValidAccessToken();
       return submitComment(token, placeId, comment);
     },
     onSuccess: () => {
