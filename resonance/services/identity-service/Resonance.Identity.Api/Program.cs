@@ -11,10 +11,12 @@ using Resonance.Identity.Application.Auth.Refresh;
 using Resonance.Identity.Application.Auth.Register;
 using Resonance.Identity.Application.Profile.GetMe;
 using Resonance.Identity.Application.Profile.UpdateProfile;
+using Resonance.Identity.Application.Profile.UploadAvatar;
 using Resonance.Identity.Application.Sessions.GetSessions;
 using Resonance.Identity.Application.Sessions.RevokeOtherSessions;
 using Resonance.Identity.Application.Sessions.RevokeSession;
 using Resonance.Identity.Application.Users.GetByIds;
+using Resonance.Identity.Application.Profile.DeleteAvatar;
 using Resonance.Identity.Infrastructure;
 using Scalar.AspNetCore;
 
@@ -206,6 +208,36 @@ app.MapGet("/api/identity/users", async (
 {
     var result = await mediator.Send(new GetUsersByIdsQuery(ids), cancellationToken);
     return Results.Ok(result);
+}).RequireAuthorization();
+
+app.MapPut("/api/identity/me/avatar", async(
+    IFormFile file, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    try
+    {
+        await using var stream = file.OpenReadStream();
+        var url = await mediator.Send(new UploadAvatarCommand(userId, stream, file.ContentType, file.Length), cancellationToken);
+        return Results.Ok(new { avatarUrl = url });
+    }
+    catch(ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.NotFound(new { error = ex.Message });
+    }
+}).RequireAuthorization().DisableAntiforgery();
+
+app.MapDelete("/api/identity/me/avatar", async (
+    ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    await mediator.Send(new DeleteAvatarCommand(userId), cancellationToken);
+    return Results.NoContent();
 }).RequireAuthorization();
 
 app.Run();
