@@ -43,6 +43,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: Host=postgres;Port=5432;Database=resonance_identity;Username=resonance;Password=dev123
+      Aws__AccessKeyId: ${AWS_ACCESS_KEY_ID}
+      Aws__SecretAccessKey: ${AWS_SECRET_ACCESS_KEY}
+      Aws__Region: ${AWS_REGION}
+      Aws__AvatarsBucketName: ${AWS_AVATARS_BUCKET_NAME}
     depends_on:
       postgres:
         condition: service_healthy
