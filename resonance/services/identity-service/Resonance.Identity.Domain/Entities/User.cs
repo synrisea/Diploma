@@ -9,6 +9,7 @@ public class User
     public string DisplayName { get; private set; } = null!;
     public string? PreferencesJson {get; private set;}
     public DateTime CreatedAt { get; private set; }
+    public string? AvatarUrl { get; private set; }
 
     private User() {}
 
@@ -40,5 +41,10 @@ public class User
     public void UpdatePreferences(string? preferencesJson)
     {
         PreferencesJson = preferencesJson;
+    }
+
+    public void UpdateAvatarUrl(string? avatarUrl)
+    {
+        AvatarUrl = avatarUrl;
     }
 }
