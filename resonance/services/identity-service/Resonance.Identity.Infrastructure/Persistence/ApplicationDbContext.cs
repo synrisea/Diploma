@@ -9,6 +9,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<EmailChangeRequest> EmailChangeRequests => Set<EmailChangeRequest>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<ExternalLogin> ExternalLogins => Set<ExternalLogin>();
 
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) {}
 

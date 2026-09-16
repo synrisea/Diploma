@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Resonance.Identity.Application.Common;
 using Resonance.Identity.Infrastructure.Email;
 using Resonance.Identity.Infrastructure.Media;
+using Resonance.Identity.Infrastructure.OAuth;
 using Resonance.Identity.Infrastructure.Persistence;
 using Resonance.Identity.Infrastructure.Security;
 
@@ -45,6 +46,9 @@ public static class DependencyInjection
 
         services.AddScoped<IImageResizer, ImageResizer>();
         services.AddScoped<IAvatarStorage, S3AvatarStorage>();
+
+        services.AddHttpClient<IGoogleOAuthClient, GoogleOAuthClient>();
+
         return services;
     }
 }
