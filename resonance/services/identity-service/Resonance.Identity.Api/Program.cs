@@ -17,6 +17,8 @@ using Resonance.Identity.Application.Sessions.RevokeOtherSessions;
 using Resonance.Identity.Application.Sessions.RevokeSession;
 using Resonance.Identity.Application.Users.GetByIds;
 using Resonance.Identity.Application.Profile.DeleteAvatar;
+using Resonance.Identity.Application.EmailChange.StartEmailChange;
+using Resonance.Identity.Application.EmailChange.ConfirmEmailChange;
 using Resonance.Identity.Infrastructure;
 using Scalar.AspNetCore;
 
@@ -239,5 +241,43 @@ app.MapDelete("/api/identity/me/avatar", async (
     await mediator.Send(new DeleteAvatarCommand(userId), cancellationToken);
     return Results.NoContent();
 }).RequireAuthorization();
+
+app.MapPost("/api/identity/me/email", async (
+    StartEmailChangeRequest request, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    try
+    {
+        await mediator.Send(new StartEmailChangeCommand(userId, request.NewEmail), cancellationToken);
+        return Results.NoContent();
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Conflict(new { error = ex.Message });
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).RequireAuthorization();
+
+app.MapGet("/api/identity/email-change/confirm", async (
+    string token, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var fullyConfirmed = await mediator.Send(new ConfirmEmailChangeCommand(token), cancellationToken);
+        var message = fullyConfirmed
+            ? "Email address updated. You can close this tab."
+            : "Confirmed. Waiting on the other address to confirm too.";
+        return Results.Content($"<html><body><p>{message}</p></body></html>", "text/html");
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Content($"<html><body><p>{ex.Message}</p></body></html>", "text/html", statusCode: 400);
+    }
+});
+
 
 app.Run();
