@@ -4,9 +4,11 @@ using System.Text;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using Resonance.Identity.Api.Contracts;
 using Resonance.Identity.Application;
+using Resonance.Identity.Application.Auth;
 using Resonance.Identity.Application.Auth.GoogleSignIn;
 using Resonance.Identity.Application.Auth.Login;
 using Resonance.Identity.Application.Auth.Refresh;
@@ -33,6 +35,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddDataProtection();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddCors(options =>
 {
@@ -87,6 +90,8 @@ static Guid? TryGetSessionId(ClaimsPrincipal user)
     var claim = user.FindFirstValue("sid");
     return Guid.TryParse(claim, out var sessionId) ? sessionId : null;
 }
+
+static string GoogleHandoffCacheKey(string code) => $"google-handoff:{code}";
 
 static (string? DeviceLabel, string? IpAddress) GetClientInfo(HttpContext httpContext)
 {
@@ -292,19 +297,23 @@ app.MapGet("/api/auth/google/start", (IDataProtectionProvider dataProtectionProv
 
 app.MapGet("/api/auth/google/callback", async (
     string code, string state, HttpContext httpContext, IDataProtectionProvider dataProtectionProvider,
-    IGoogleOAuthClient googleClient, IMediator mediator, CancellationToken cancellationToken) =>
+    IGoogleOAuthClient googleClient, IMediator mediator, IMemoryCache memoryCache, CancellationToken cancellationToken) =>
 {
+    // This endpoint is only ever hit via a full browser navigation (Google's own
+    // redirect), never fetch/XHR - every exit path below redirects to the
+    // frontend rather than returning JSON, or the browser just renders raw JSON text.
+    var frontendBaseUrl = builder.Configuration["Identity:FrontendBaseUrl"] ?? "http://localhost:5173";
     var protector = dataProtectionProvider.CreateProtector("GoogleOAuthState");
 
     try
     {
         var issuedAt = DateTime.Parse(protector.Unprotect(state), null, System.Globalization.DateTimeStyles.RoundtripKind);
         if (DateTime.UtcNow - issuedAt > TimeSpan.FromMinutes(10))
-            return Results.BadRequest(new { error = "This sign-in link has expired. Please try again." });
+            return Results.Redirect($"{frontendBaseUrl}/auth/callback?error={Uri.EscapeDataString("This sign-in link has expired. Please try again.")}");
     }
     catch
     {
-        return Results.BadRequest(new { error = "Invalid sign-in state." });
+        return Results.Redirect($"{frontendBaseUrl}/auth/callback?error={Uri.EscapeDataString("Invalid sign-in state.")}");
     }
 
     try
@@ -316,14 +325,27 @@ app.MapGet("/api/auth/google/callback", async (
             new GoogleSignInCommand(googleUser.ProviderUserId, googleUser.Email, googleUser.DisplayName, deviceLabel, ipAddress),
             cancellationToken);
 
-        // TODO once the frontend has a Google sign-in page: redirect there with
-        // these tokens instead of returning raw JSON from an API endpoint.
-        return Results.Ok(result);
+        // Real tokens never go in a URL (browser history, server logs, Referer
+        // headers) - stash them behind a random single-use code instead and
+        // hand the frontend only that code. It exchanges it immediately via POST.
+        var handoffCode = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+        memoryCache.Set(GoogleHandoffCacheKey(handoffCode), result, TimeSpan.FromSeconds(60));
+
+        return Results.Redirect($"{frontendBaseUrl}/auth/callback?code={handoffCode}");
     }
     catch (InvalidOperationException ex)
     {
-        return Results.BadRequest(new { error = ex.Message });
+        return Results.Redirect($"{frontendBaseUrl}/auth/callback?error={Uri.EscapeDataString(ex.Message)}");
     }
+});
+
+app.MapPost("/api/auth/google/exchange", (GoogleExchangeRequest request, IMemoryCache memoryCache) =>
+{
+    if (!memoryCache.TryGetValue(GoogleHandoffCacheKey(request.Code), out AuthResponseDto? result) || result is null)
+        return Results.BadRequest(new { error = "This sign-in link has expired or was already used. Please try again." });
+
+    memoryCache.Remove(GoogleHandoffCacheKey(request.Code));
+    return Results.Ok(result);
 });
 
 app.Run();
