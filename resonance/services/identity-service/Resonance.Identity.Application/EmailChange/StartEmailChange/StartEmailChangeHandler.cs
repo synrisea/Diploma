@@ -40,7 +40,8 @@ public class StartEmailChangeHandler : IRequestHandler<StartEmailChangeCommand>
         
         var oldRawToken = GenerateToken();
         var newRawToken = GenerateToken();
-        var baseUrl = _configuration["Identity:PublicBaseUrl"] ?? "http://localhost:5076";
+        var baseUrl = _configuration["Identity:PublicBaseUrl"]
+            ?? throw new InvalidOperationException("Identity:PublicBaseUrl is not configured.");
 
         try
         {

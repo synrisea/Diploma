@@ -299,10 +299,8 @@ app.MapGet("/api/auth/google/callback", async (
     string code, string state, HttpContext httpContext, IDataProtectionProvider dataProtectionProvider,
     IGoogleOAuthClient googleClient, IMediator mediator, IMemoryCache memoryCache, CancellationToken cancellationToken) =>
 {
-    // This endpoint is only ever hit via a full browser navigation (Google's own
-    // redirect), never fetch/XHR - every exit path below redirects to the
-    // frontend rather than returning JSON, or the browser just renders raw JSON text.
-    var frontendBaseUrl = builder.Configuration["Identity:FrontendBaseUrl"] ?? "http://localhost:5173";
+    var frontendBaseUrl = builder.Configuration["Identity:FrontendBaseUrl"]
+        ?? throw new InvalidOperationException("Identity:FrontendBaseUrl is not configured.");
     var protector = dataProtectionProvider.CreateProtector("GoogleOAuthState");
 
     try
@@ -325,9 +323,6 @@ app.MapGet("/api/auth/google/callback", async (
             new GoogleSignInCommand(googleUser.ProviderUserId, googleUser.Email, googleUser.DisplayName, deviceLabel, ipAddress),
             cancellationToken);
 
-        // Real tokens never go in a URL (browser history, server logs, Referer
-        // headers) - stash them behind a random single-use code instead and
-        // hand the frontend only that code. It exchanges it immediately via POST.
         var handoffCode = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
         memoryCache.Set(GoogleHandoffCacheKey(handoffCode), result, TimeSpan.FromSeconds(60));
 
