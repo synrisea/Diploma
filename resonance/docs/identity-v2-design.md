@@ -1,17 +1,18 @@
 # Identity Service v2 — Design Doc
 
-Status: **design only, not yet implemented**. Written 2026-09-12, before any code for this expansion exists. This is the full design for the identity-service overhaul requested to back avatars, profiles, email management, Google OAuth, MFA, and session management. Not saved as a throwaway chat artifact deliberately — Feature 2's original UX proposal got lost that way once already (see PROGRESS.md), not repeating that mistake here.
+Status: **implemented and shipped, Stages 1–4.** Written 2026-09-12; Stage 5 (MFA) was deliberately dropped on 2026-09-17 before implementation — see §8. This was the full design for the identity-service overhaul to back avatars, profiles, email management, Google OAuth, and session management. Not saved as a throwaway chat artifact deliberately — Feature 2's original UX proposal got lost that way once already (see PROGRESS.md), not repeating that mistake here.
 
 ## 0. Scope
 
-Six areas, in the order they'll actually get built (see §7 for why this order):
+Five areas, in the order they were actually built (see §7):
 
-1. Profile fields (DisplayName edit, preferences)
-2. Avatars (upload, resize, S3 storage, delete)
-3. Session management (refresh tokens, rotation, revocation, multi-device session list)
-4. Email change with double opt-in verification
-5. Google OAuth (Sign in with Google, auto-provision or link-by-email)
-6. MFA — TOTP (authenticator apps) + email OTP
+1. Profile fields (DisplayName edit, preferences) — done
+2. Avatars (upload, resize, S3 storage, delete) — done
+3. Session management (refresh tokens, rotation, revocation, multi-device session list) — done
+4. Email change with double opt-in verification — done
+5. Google OAuth (Sign in with Google, auto-provision or link-by-email) — done
+
+~~MFA — TOTP (authenticator apps) + email OTP~~ — dropped, see §8. The entities below (§2.5–2.7) and their API/flow sections were never built.
 
 ## 1. External dependencies
 
@@ -85,6 +86,10 @@ CreatedAt       DateTime
 
 The email only actually changes once **both** `OldEmailConfirmedAt` and `NewEmailConfirmedAt` are set — this is the "sent to both old and new addresses" requirement. Old-address confirmation proves the current account owner initiated it (not an attacker who's already compromised the new-email inbox); new-address confirmation proves they actually control the destination.
 
+### 2.5–2.7: MFA entities — **not built, see §8**
+
+`TotpCredential`, `EmailOtpChallenge`, and `MfaChallenge` below were designed but never implemented. Left in place as a record of the design, not as pending work.
+
 ### 2.5 `TotpCredential` (new — authenticator app MFA)
 
 ```
@@ -139,7 +144,7 @@ All new endpoints live in `Resonance.Identity.Api/Program.cs` following the exis
 | GET | `/api/auth/google/start` | none | Redirects to Google's consent screen |
 | GET | `/api/auth/google/callback` | none | Google redirects here with an auth code; exchanges it, logs in or auto-provisions |
 
-**MFA**
+**MFA — not built, see §8**
 | POST | `/api/identity/mfa/totp/enroll` | required | Generates a secret + QR code payload |
 | POST | `/api/identity/mfa/totp/confirm` | required | Confirms enrollment with one valid code, sets `IsEnabled = true` |
 | DELETE | `/api/identity/mfa/totp` | required | Disable TOTP |
@@ -153,14 +158,14 @@ All new endpoints live in `Resonance.Identity.Api/Program.cs` following the exis
 | POST | `/api/auth/refresh` | none (token in body) | Exchange a refresh token for a new access+refresh pair |
 
 **Auth (existing, modified)**
-- `POST /api/auth/login` — now returns *either* `AuthResponseDto` (unchanged shape, MFA disabled) *or* `{ mfaChallengeId, availableMethods: ["Totp","EmailOtp"] }` (MFA enabled). Also now issues a `RefreshToken` alongside the access token, and access token lifetime shrinks from 1440 to 15 minutes (see intro).
+- `POST /api/auth/login` — as built (no MFA branch, §8): always returns `AuthResponseDto`. Now issues a `RefreshToken` alongside the access token, and access token lifetime shrinks from 1440 to 15 minutes (see intro).
 - `POST /api/auth/register` — unchanged shape, but password hashing now goes through the versioned algorithm (§6.1).
 
 ## 4. Flows
 
 **Register/login, MFA disabled** — unchanged from today, plus a refresh token now issued alongside the access token.
 
-**Login, MFA enabled**: password verified → `MfaChallenge` created → client shown a code-entry screen → client posts code to `/api/auth/mfa/challenge` → server validates against `TotpCredential` or `EmailOtpChallenge` → real tokens issued, challenge consumed.
+**Login, MFA enabled** — not built, see §8.
 
 **Avatar upload**: client posts multipart image to `/api/identity/me/avatar` → server validates content-type/size (cap ~5MB, restrict to jpeg/png/webp) → resizes to a fixed set of variants (e.g. 256px, 64px) using `SixLabors.ImageSharp` (pure managed, no native binary dependency, free for this project's scale under Six Labors' license terms) → uploads resized bytes to S3 under `avatars/{userId}/{variant}.webp` → old object deleted if one existed → `AvatarUrl` updated. Server-side resize (not client-side, not direct-to-S3 presigned upload) chosen deliberately: keeps file-type/size validation server-side rather than trusting the client, and avoids a second architecture (presigned URLs) for a diploma-project-scale feature. Worth revisiting if upload volume ever makes proxying through the API a bottleneck.
 
@@ -169,6 +174,8 @@ All new endpoints live in `Resonance.Identity.Api/Program.cs` following the exis
 **Google sign-in, new user**: client hits `/api/auth/google/start` → redirect to Google consent → Google redirects to `/callback` with a code → server exchanges code for tokens via Google's token endpoint → validates ID token → extracts `sub` + `email` → no `ExternalLogin` row for that `sub` → check for an existing `User` with that email → none found → auto-provision a new `User` (no usable password — `PasswordHash` set to a sentinel that can never match any BCrypt/Argon2 comparison, so password login stays impossible until they explicitly set one) → create `ExternalLogin` link → issue tokens.
 
 **Google sign-in, linking**: same as above but a `User` with that email *does* already exist → link the new `ExternalLogin` to that existing user instead of creating a new account → issue tokens for the existing account. (Worth a product decision later: should this require the existing account to confirm via a logged-in session first, to prevent someone claiming an email they don't control? Google having verified the email address already covers most of this risk, but flagging it as a known simplification.)
+
+**Google sign-in, token handoff (2026-09-17)**: `/api/auth/google/callback` is only ever reached via a full browser navigation — it's where Google's own redirect lands, never something the frontend calls via `fetch`/XHR. That rules out just returning `AuthResponseDto` as JSON (the browser would render it as a raw JSON page) and, more importantly, rules out putting real access/refresh tokens in the redirect URL at all — a URL is logged server-side, sits in browser history, and leaks via `Referer` headers if the landing page loads any external resource. Instead: the callback mints a random 32-byte hex handoff code, stashes `code → AuthResponseDto` in `IMemoryCache` for 60 seconds (single-use, no DB table needed for something this short-lived), and redirects to `{Identity:FrontendBaseUrl}/auth/callback?code={code}`. The frontend immediately `POST`s that code to `/api/auth/google/exchange`, which looks it up, removes it from the cache, and returns the real `AuthResponseDto` — the only place actual tokens travel is that POST body. Every other exit path from the callback (expired/invalid `state`, a failed code exchange) redirects the same way, to `{Identity:FrontendBaseUrl}/auth/callback?error={message}`, for the same "never return raw JSON to a full-page navigation" reason.
 
 **Refresh token rotation**: client posts its refresh token to `/api/auth/refresh` → server hashes it, looks up the `RefreshToken` row → if revoked *and* it's being reused, treat as theft: revoke the entire token family (walk `ReplacedByTokenId` backwards, or simpler — revoke all of that user's tokens) → if valid, revoke this row (`RevokedAt = now`), issue a new access+refresh pair, set `ReplacedByTokenId` on the old row to the new one.
 
@@ -184,18 +191,27 @@ All new endpoints live in `Resonance.Identity.Api/Program.cs` following the exis
 
 **6.5 — Secrets management.** AWS keys, Resend API key, Google Client Secret, and the `IDataProtector` key ring all need to stay out of git. This project currently puts JWT secrets directly in `appsettings.Development.json` (committed) — acceptable for a shared dev-only HMAC secret that's the same across all services by design, but AWS/Resend/Google credentials are a different category (real external accounts, potentially billable, tied to a person). These should go in user-secrets (`dotnet user-secrets`) or environment variables passed via docker-compose, **not** committed `appsettings.Development.json`, even in this project's otherwise-relaxed convention. Worth a deliberate exception, not an oversight.
 
-## 6. Open questions for you before implementation starts
+## 6. Open questions — resolved
 
-1. AWS bucket name/region + IAM credentials (§1).
-2. Resend API key (§1).
-3. Google OAuth Client ID/Secret (§1) — you're getting this now.
-4. §2.1.1's preferences starting set — fine as scoped, or is there something specific you already have in mind that should shape the schema now rather than later?
-5. §4's Google-linking-by-email trust question — accept the simplification, or require a logged-in confirmation step?
+1. AWS bucket name/region + IAM credentials — provided, Stage 2 shipped.
+2. Resend API key — provided, Stage 3 shipped (plus a `ConsoleEmailSender` dev fallback since Resend's sandbox can't deliver to two different addresses at once, which this feature always needs).
+3. Google OAuth Client ID/Secret — provided, Stage 4 shipped.
+4. §2.1.1's preferences starting set — accepted as scoped, unchanged.
+5. §4's Google-linking-by-email trust question — resolved 2026-09-16: trust Google's own email verification, no extra logged-in confirmation step. Implemented as designed.
 
-## 7. Implementation order
+## 7. Implementation order (as built)
 
-1. **Profile fields + sessions** — no external deps, can start immediately once this doc's approved.
-2. **Avatars** — needs AWS credentials (§6.1).
-3. **Email change** — needs Resend key (§6.2).
-4. **Google OAuth** — needs Google credentials (§6.3), independent of email/avatars so can happen in parallel with either.
-5. **MFA (TOTP first, then email OTP)** — TOTP has no external dependency and can move up if you want it sooner; email OTP is blocked on Resend same as email change.
+1. **Profile fields + sessions** — shipped.
+2. **Avatars** — shipped.
+3. **Email change** — shipped.
+4. **Google OAuth** — shipped. This is the last stage; see §8.
+
+## 8. MFA — dropped, not built
+
+Decided 2026-09-17, before any TOTP/email-OTP code was written. Reasoning:
+
+- **Email change already has equivalent protection.** The double opt-in (§2.4/§4) already proves whoever's making a change controls both the old and new address — that's the same guarantee OTP-on-sensitive-actions exists to provide. Layering OTP on top would be redundant, not additive.
+- **MFA's value is proportional to what's actually at stake.** It earns its complexity for apps guarding money, health records, or accounts that are individually worth targeting. Resonance is place reviews and comments — a compromised account's blast radius is a fake review, not financial loss. The threat model doesn't call for it.
+- **The cost isn't small relative to that low payoff**: a new entity, encrypted-secret handling (`IDataProtector`, same tool used for the Google OAuth `state` parameter), QR code generation, and a challenge state machine bridging "password verified" and "actually logged in" — plus real frontend UI later. Not proportionate here.
+
+If the app ever takes on something that changes the risk profile (payments, more sensitive data), §2.5–2.7 and the MFA rows in §3/§4 above are still a complete design to pick back up — nothing here needs to be re-derived, just re-approved.

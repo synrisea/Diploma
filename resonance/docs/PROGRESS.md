@@ -1,6 +1,6 @@
 # Resonance — Progress & Roadmap
 
-Last updated: 2026-09-10. This file is the source of truth for "what's done and what's next" — update it as things change instead of relying on memory.
+Last updated: 2026-09-17. This file is the source of truth for "what's done and what's next" — update it as things change instead of relying on memory.
 
 ## Architecture at a glance
 
@@ -29,8 +29,14 @@ docker compose -f infra/docker-compose.yml up -d --build
 - [x] Bbox-queryable API, PostGIS `geometry(Point,4326)`
 - [x] Map with clustering, clean CARTO basemap, category-colored pins
 
-**Identity**
-- [x] Register/login, BCrypt password hashing, JWT issuance
+**Identity — v2 overhaul complete (2026-09-17)**, full design/reasoning in `docs/identity-v2-design.md`:
+- [x] Register/login, versioned password hashing (BCrypt kept for existing users, Argon2id for new — an algorithm migration, not a breaking rehash)
+- [x] Refresh tokens: rotation on every use, reuse-detection (a revoked token being reused nukes every session for that user, not just the one), access tokens dropped from 1440min to 15min since revocation is meaningless otherwise. Multi-device session list + revoke-one/revoke-others.
+- [x] Profile fields (`DisplayName`, JSON-blob `Preferences`) — `GET/PATCH /api/identity/me`
+- [x] Avatars: upload/resize (`SixLabors.ImageSharp`, 256px+64px `.webp` variants)/S3 storage/delete — `PUT/DELETE /api/identity/me/avatar`
+- [x] Email change with double opt-in (confirmation links to *both* old and new address before it applies) via Resend, plus a `ConsoleEmailSender` dev-mode fallback (Resend sandbox can't deliver to two different addresses at once, which this feature always needs)
+- [x] Google OAuth sign-in — auto-provisions a new account or links to an existing one by email (trusts Google's own email verification, no extra confirmation step), CSRF-protected via a signed `state` param (`IDataProtector`, no DB row needed)
+- [ ] MFA (TOTP + email OTP) — **deliberately dropped**, not built. Email change's double opt-in already provides equivalent protection for the one place OTP would've mattered; the app's threat model (place reviews, no money/health data) doesn't call for the added complexity. See `identity-v2-design.md` §8 if this ever needs revisiting.
 
 **Feedback**
 - [x] Free-text comments only — **no fixed noise/wifi/crowded checkboxes** (deliberate, see decisions below)
