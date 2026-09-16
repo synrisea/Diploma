@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Resonance.Identity.Application.Common;
+using Resonance.Identity.Infrastructure.Email;
 using Resonance.Identity.Infrastructure.Media;
 using Resonance.Identity.Infrastructure.Persistence;
 using Resonance.Identity.Infrastructure.Security;
@@ -23,6 +24,15 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
+        if (configuration.GetValue<bool>("Email:UseConsoleSender"))
+        {
+            services.AddScoped<IEmailSender, ConsoleEmailSender>();
+        }
+        else
+        {
+            services.AddHttpClient<IEmailSender, ResendEmailSender>();
+        }
+        
         services.AddSingleton<IAmazonS3>(sp =>
         {
             var config = sp.GetRequiredService<IConfiguration>();

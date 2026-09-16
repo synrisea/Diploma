@@ -6,13 +6,11 @@ namespace Resonance.Identity.Infrastructure.Persistence;
 
 public class ApplicationDbContext : DbContext, IApplicationDbContext
 {
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
-    {
-        
-    }
-
     public DbSet<User> Users => Set<User>();
+    public DbSet<EmailChangeRequest> EmailChangeRequests => Set<EmailChangeRequest>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) {}
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
