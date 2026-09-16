@@ -3,12 +3,15 @@ using System.Security.Claims;
 using System.Text;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.IdentityModel.Tokens;
 using Resonance.Identity.Api.Contracts;
 using Resonance.Identity.Application;
+using Resonance.Identity.Application.Auth.GoogleSignIn;
 using Resonance.Identity.Application.Auth.Login;
 using Resonance.Identity.Application.Auth.Refresh;
 using Resonance.Identity.Application.Auth.Register;
+using Resonance.Identity.Application.Common;
 using Resonance.Identity.Application.Profile.GetMe;
 using Resonance.Identity.Application.Profile.UpdateProfile;
 using Resonance.Identity.Application.Profile.UploadAvatar;
@@ -29,6 +32,7 @@ const string FrontendCorsPolicy = "FrontendCorsPolicy";
 builder.Services.AddOpenApi();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddDataProtection();
 
 builder.Services.AddCors(options =>
 {
@@ -279,5 +283,47 @@ app.MapGet("/api/identity/email-change/confirm", async (
     }
 });
 
+app.MapGet("/api/auth/google/start", (IDataProtectionProvider dataProtectionProvider, IGoogleOAuthClient googleClient) =>
+{
+    var protector = dataProtectionProvider.CreateProtector("GoogleOAuthState");
+    var state = protector.Protect(DateTime.UtcNow.ToString("O"));
+    return Results.Redirect(googleClient.BuildAuthorizationUrl(state));
+});
+
+app.MapGet("/api/auth/google/callback", async (
+    string code, string state, HttpContext httpContext, IDataProtectionProvider dataProtectionProvider,
+    IGoogleOAuthClient googleClient, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    var protector = dataProtectionProvider.CreateProtector("GoogleOAuthState");
+
+    try
+    {
+        var issuedAt = DateTime.Parse(protector.Unprotect(state), null, System.Globalization.DateTimeStyles.RoundtripKind);
+        if (DateTime.UtcNow - issuedAt > TimeSpan.FromMinutes(10))
+            return Results.BadRequest(new { error = "This sign-in link has expired. Please try again." });
+    }
+    catch
+    {
+        return Results.BadRequest(new { error = "Invalid sign-in state." });
+    }
+
+    try
+    {
+        var googleUser = await googleClient.ExchangeCodeAsync(code, cancellationToken);
+        var (deviceLabel, ipAddress) = GetClientInfo(httpContext);
+
+        var result = await mediator.Send(
+            new GoogleSignInCommand(googleUser.ProviderUserId, googleUser.Email, googleUser.DisplayName, deviceLabel, ipAddress),
+            cancellationToken);
+
+        // TODO once the frontend has a Google sign-in page: redirect there with
+        // these tokens instead of returning raw JSON from an API endpoint.
+        return Results.Ok(result);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
 
 app.Run();
