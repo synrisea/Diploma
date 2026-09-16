@@ -47,4 +47,12 @@ public class User
     {
         AvatarUrl = avatarUrl;
     }
+
+    public void ChangeEmail(string newEmail)
+    {
+        if (string.IsNullOrWhiteSpace(newEmail))
+            throw new ArgumentException("Email is required.", nameof(newEmail));
+
+        Email = newEmail.Trim().ToLowerInvariant();
+    }
 }
