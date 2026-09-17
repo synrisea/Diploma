@@ -23,7 +23,7 @@ public class GetCommentsAfterHandler : IRequestHandler<GetCommentsAfterQuery, Li
         return await query
             .OrderBy(f => f.CreatedAt)
             .Take(request.Limit)
-            .Select(f => new CommentDto(f.Id, f.PlaceId, f.Comment, f.CreatedAt))
+            .Select(f => new CommentDto(f.Id, f.PlaceId, f.UserId, f.Comment, f.CreatedAt, Array.Empty<string>()))
             .ToListAsync(cancellationToken);
     }
 }

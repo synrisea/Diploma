@@ -12,6 +12,7 @@ public class ApplicationDbContext: DbContext, IApplicationDbContext
     }
 
     public DbSet<QuickFeedback> QuickFeedbacks => Set<QuickFeedback>();
+    public DbSet<QuickFeedbackPhoto> QuickFeedbackPhotos => Set<QuickFeedbackPhoto>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
