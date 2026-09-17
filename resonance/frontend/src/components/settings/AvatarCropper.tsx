@@ -35,9 +35,6 @@ export function AvatarCropper({
   const imgRef = useRef<HTMLImageElement>(null);
   const dragState = useRef<{ pointerId: number; startX: number; startY: number; startPan: Pan } | null>(null);
 
-  // Created and revoked together inside the effect (not a lazy useState initializer) so that
-  // React StrictMode's dev-mode double-invoke (mount -> cleanup -> mount) can't revoke this URL
-  // out from under the <img> before a fresh one is created on the follow-up mount.
   useEffect(() => {
     const url = URL.createObjectURL(file);
     setObjectUrl(url);

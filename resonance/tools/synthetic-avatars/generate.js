@@ -20,8 +20,6 @@ const s3 = new S3Client({
   },
 });
 
-// Same brand-500/brand-ink colors as the app's initial-letter avatar fallback
-// (UserMenu.tsx etc.) - a generic person glyph instead of a letter.
 function standardAvatarSvg(size) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${size}" height="${size}">
     <rect width="64" height="64" fill="#ff6a39"/>
@@ -59,9 +57,6 @@ async function main() {
   });
   await client.connect();
 
-  // Every current user is a throwaway test/dev account (verified manually before
-  // running this) - safe to standardize them all rather than trying to guess which
-  // ones already had a "real" upload vs a placeholder from an earlier run of this tool.
   const result = await client.query('UPDATE "Users" SET "AvatarUrl" = $1', [avatarUrl]);
   console.log(`${result.rowCount} users set to the standard avatar.`);
 

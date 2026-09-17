@@ -18,8 +18,6 @@ const labelClass = 'font-mono text-[10px] uppercase tracking-[0.1em] text-stone-
 const errorClass =
   'rounded-xl border border-sentiment-negative/25 bg-sentiment-negative/10 px-3 py-2 text-sm text-sentiment-negative';
 
-// One consistent button language across the whole settings page: a filled pill for
-// the primary action per section, plain text links (color-coded by intent) for everything else.
 const primaryButtonClass =
   'self-start rounded-full bg-brand-500 px-4 py-2 text-sm font-medium text-brand-ink transition-colors hover:bg-brand-600 disabled:opacity-50';
 const linkButtonClass =

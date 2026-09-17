@@ -10,10 +10,6 @@ export function PhotoLightbox({ url, onClose }: { url: string; onClose: () => vo
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
 
-  // Rendered via a portal straight onto document.body: the sidebar (aside) uses
-  // backdrop-blur, and a backdrop-filter ancestor creates a new containing block for
-  // position:fixed descendants, which clipped this overlay to the sidebar's bounds
-  // instead of the viewport when it was rendered inline.
   return createPortal(
     <div
       className="fixed inset-0 z-[1400] flex items-center justify-center bg-black/85 p-6 backdrop-blur-sm"

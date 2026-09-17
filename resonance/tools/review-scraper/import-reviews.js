@@ -27,8 +27,6 @@ const s3 = new S3Client({
   },
 });
 
-// Google's own image-serving URLs accept an arbitrary w/h size suffix - bump the
-// thumbnail sizes actually rendered on the review card up to something worth re-hosting.
 function upsizeGoogleUrl(url, width, height) {
   return url.replace(/=w\d+-h\d+/, `=w${width}-h${height}`);
 }

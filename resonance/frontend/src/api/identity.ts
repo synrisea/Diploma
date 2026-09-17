@@ -22,9 +22,7 @@ async function authedFetch(path: string, accessToken: string, init?: RequestInit
     try {
       const body = await response.json();
       if (typeof body?.error === 'string') message = body.error;
-    } catch {
-      // response wasn't JSON - keep the generic message
-    }
+    } catch {}
     throw new ApiError(response.status, message);
   }
 
