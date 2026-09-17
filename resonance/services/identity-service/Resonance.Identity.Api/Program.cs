@@ -221,6 +221,13 @@ app.MapGet("/api/identity/users", async (
     return Results.Ok(result);
 }).RequireAuthorization();
 
+app.MapGet("/api/identity/public-profiles", async (
+    Guid[] ids, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    var result = await mediator.Send(new GetUsersByIdsQuery(ids), cancellationToken);
+    return Results.Ok(result);
+});
+
 app.MapPut("/api/identity/me/avatar", async(
     IFormFile file, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
 {

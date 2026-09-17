@@ -20,7 +20,7 @@ public class GetUsersByIdsHandler : IRequestHandler<GetUsersByIdsQuery, List<Use
 
         return await _context.Users
             .Where(u => request.Ids.Contains(u.Id))
-            .Select(u => new UserSummaryDto(u.Id, u.DisplayName))
+            .Select(u => new UserSummaryDto(u.Id, u.DisplayName, u.AvatarUrl))
             .ToListAsync(cancellationToken);
     }
 }
