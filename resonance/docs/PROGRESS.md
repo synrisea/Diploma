@@ -113,6 +113,10 @@ A full UX/IA proposal was written and approved (place page → "Want to go?" →
 - When picking the time window on the place page, offer quick-select preset chips (e.g. coffee, remote work, sightseeing, drinks) plus free text.
 - The tag shows next to the name in the "who's going" list, and again at the top of the chat panel once a conversation starts, so both sides see the shared context immediately.
 
+### Feature 3: public user profiles — designed, not started
+
+Full design in `docs/public-profiles-design.md` (2026-09-17) — the prerequisite Feature 2 needs, since chatting with someone about visiting a place together first requires somewhere to see who they are. Adds `Bio`, `Interests` (fixed preset list), `PreferredLanguage` to `User`; a public `/users/:id` profile page with derived stats (comment count, distinct places visited, photos shared — all computed from existing data, nothing new stored) and comment history; new anonymous endpoints on identity-service and feedback-service. Flags one thing worth a conscious look before building: some comment authors today are real Google reviewers (scraped name + avatar, see Topics/review-scraper below) — a full profile page is a deeper presentation of their data than a name next to a review, worth deciding deliberately rather than inheriting by default.
+
 ## Deferred, on purpose (don't re-suggest without new information)
 
 | Item | Why deferred |
@@ -122,6 +126,7 @@ A full UX/IA proposal was written and approved (place page → "Want to go?" →
 | Comment moderation | Comments are deliberately public with no moderation — revisit at real volume or before a public demo |
 | MediatR licensing | MediatR 13+ requires a paid license for production use; still on the free dev/test tier. Options: accept the license, pin to MediatR 12.x (MIT), or drop MediatR for direct DI. Not decided. Would apply equally to a new `connections-service` built the same way. |
 | Shared-intention connections (Feature 2) | Fully designed/approved, not started — see "Next step" above |
+| Public user profiles (Feature 3) | Designed, not started — prerequisite for Feature 2's chat; see `docs/public-profiles-design.md` |
 | Road-network-aware route distances | Route planning uses straight-line (haversine) distance, not real walking paths (OSRM etc.) — accepted as good-enough for Torgovy's small, walkable footprint; revisit if that stops being true |
 | ngrok deployment (this laptop as workstation) | Frontend calls 4 separate backend origins directly (baked into `.env`), so tunneling just the frontend port doesn't work — needs either a reverse proxy in front of everything (one tunnel, same-origin, doubles as the API Gateway item above) or 5 separate tunnels + CORS allow-list updates in 3 `.cs` files + topics-service's `FRONTEND_CORS_ORIGINS` every time a free-tier ngrok URL changes. Also: free-tier ngrok's browser-warning interstitial intercepts `fetch`/XHR calls too, not just page loads — needs `ngrok-skip-browser-warning: true` on requests regardless of which approach is used. Revisit when there's an actual audience to demo to. |
 
