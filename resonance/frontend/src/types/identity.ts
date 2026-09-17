@@ -7,6 +7,12 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export interface PublicProfile {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
 export interface Session {
   id: string;
   deviceLabel: string | null;

@@ -1,4 +1,4 @@
-import type { Session, UserProfile } from '../types/identity';
+import type { PublicProfile, Session, UserProfile } from '../types/identity';
 
 const IDENTITY_API_BASE_URL = import.meta.env.VITE_IDENTITY_API_BASE_URL ?? 'http://localhost:5076';
 
@@ -77,4 +77,13 @@ export async function revokeSession(accessToken: string, sessionId: string): Pro
 
 export async function revokeOtherSessions(accessToken: string): Promise<void> {
   await authedFetch('/api/identity/sessions', accessToken, { method: 'DELETE' });
+}
+
+export async function getPublicProfiles(ids: string[]): Promise<PublicProfile[]> {
+  if (ids.length === 0) return [];
+  const params = new URLSearchParams();
+  ids.forEach((id) => params.append('ids', id));
+  const response = await fetch(`${IDENTITY_API_BASE_URL}/api/identity/public-profiles?${params.toString()}`);
+  if (!response.ok) throw new Error('Failed to load comment authors.');
+  return (await response.json()) as PublicProfile[];
 }
