@@ -207,9 +207,25 @@ async function scrapeReviewsForPlace(page, place) {
       const ratingMatch = ratingEl?.getAttribute('aria-label')?.match(/(\d+(\.\d+)?)/);
       const textEl = card.querySelector('span.wiI7pd');
       const text = textEl?.textContent?.trim() || '';
-      if (text && text.length > 1) {
-        result.push({ rating: ratingMatch ? parseFloat(ratingMatch[1]) : null, text });
-      }
+      if (!text || text.length <= 1) continue;
+
+      // The review card's own aria-label is just the reviewer's display name
+      // (e.g. aria-label="Nadiya") - simpler than the equivalent .d4r55 text node.
+      const reviewerName = card.getAttribute('aria-label') || card.querySelector('.d4r55')?.textContent?.trim() || null;
+      const avatarUrl = card.querySelector('img.NBa7we')?.getAttribute('src') || null;
+
+      // Attached review photos render as CSS background-image on buttons, not <img src>.
+      const photoUrls = Array.from(card.querySelectorAll('.KtCyie button.Tya61d'))
+        .map((btn) => (btn.getAttribute('style') || '').match(/url\(["']?(https:[^"')]+)["']?\)/)?.[1])
+        .filter(Boolean);
+
+      result.push({
+        rating: ratingMatch ? parseFloat(ratingMatch[1]) : null,
+        text,
+        reviewerName,
+        avatarUrl,
+        photoUrls,
+      });
     }
     return result;
   });
