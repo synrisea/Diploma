@@ -2,6 +2,8 @@ import { Route, Routes } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { MapPage } from './pages/MapPage';
 import { LoginPage } from './pages/LoginPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { GoogleCallbackPage } from './pages/GoogleCallbackPage';
 import { HeatmapProvider } from './heatmap/HeatmapContext';
 import { RouteProvider } from './route/RouteContext';
 
@@ -15,6 +17,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<MapPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/auth/callback" element={<GoogleCallbackPage />} />
           </Routes>
         </RouteProvider>
       </HeatmapProvider>

@@ -79,17 +79,17 @@ export function Header() {
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <HeaderDropdown
-          label="Settings"
-          triggerClassName="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-          trigger={() => <SettingsIcon />}
-          panelClassName="w-56 p-3.5"
-        >
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-stone-500">Settings</p>
-          <p className="mt-2 text-sm text-stone-500">Coming soon.</p>
-        </HeaderDropdown>
+        {isAuthenticated && (
+          <Link
+            to="/settings"
+            aria-label="Settings"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          >
+            <SettingsIcon />
+          </Link>
+        )}
 
-        <div className="h-4 w-px bg-stone-900/10" />
+        {isAuthenticated && <div className="h-4 w-px bg-stone-900/10" />}
 
         {isAuthenticated ? (
           <UserMenu />

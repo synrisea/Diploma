@@ -1,6 +1,6 @@
 # Frontend Plan: Identity v2 Features
 
-Status: **design only, nothing built yet**. Written 2026-09-17. This is a self-contained implementation spec for the frontend half of the identity overhaul documented in `identity-v2-design.md` (backend, fully shipped) — written so it can be handed to a different agent/session without needing this repo's chat history.
+Status: **implemented, 2026-09-17** (§1–§7 all built and verified against the real backend, including a live avatar upload round-trip to S3). This was a self-contained implementation spec for the frontend half of the identity overhaul documented in `identity-v2-design.md` (backend, fully shipped) — written so it could be handed to a different agent/session without needing this repo's chat history. Left in place as a record of the design/build order, not as pending work. One deliberate deviation from §3: rather than adding a separate "Settings" item only inside `UserMenu.tsx`'s dropdown, the header's pre-existing gear-icon dropdown (previously a "Coming soon" placeholder) was wired to link straight to `/settings` too — both entry points now work, rather than leaving the existing placeholder stale.
 
 ## 0. What already exists — read this first
 

@@ -39,3 +39,17 @@ export async function refreshAuth(refreshToken: string): Promise<AuthResponse> {
 
   return (await response.json()) as AuthResponse;
 }
+
+export function googleSignInUrl(): string {
+  return `${IDENTITY_API_BASE_URL}/api/auth/google/start`;
+}
+
+export async function exchangeGoogleCode(code: string): Promise<AuthResponse> {
+  const response = await fetch(`${IDENTITY_API_BASE_URL}/api/auth/google/exchange`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  if (!response.ok) throw new Error('Google sign-in failed. Please try again.');
+  return (await response.json()) as AuthResponse;
+}

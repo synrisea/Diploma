@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login, register } from '../api/auth';
+import { googleSignInUrl, login, register } from '../api/auth';
 import { useAuth } from '../auth/AuthContext';
 import { Logo } from '../components/layout/Logo';
 
@@ -118,11 +118,13 @@ export function LoginPage() {
                 <span className="font-mono text-[11px] text-stone-500">Minimum 8 characters</span>
               </label>
 
-              {error && (
-                <p className="rounded-xl border border-sentiment-negative/25 bg-sentiment-negative/10 px-3 py-2 text-sm text-sentiment-negative">
-                  {error}
-                </p>
-              )}
+              <div className="min-h-[42px]">
+                {error && (
+                  <p className="rounded-xl border border-sentiment-negative/25 bg-sentiment-negative/10 px-3 py-2 text-sm text-sentiment-negative">
+                    {error}
+                  </p>
+                )}
+              </div>
 
               <button
                 type="submit"
@@ -135,6 +137,37 @@ export function LoginPage() {
                 </span>
               </button>
             </form>
+
+            <div className="mt-4 flex items-center gap-3">
+              <div className="h-px flex-1 bg-stone-900/10" />
+              <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-stone-500">or</span>
+              <div className="h-px flex-1 bg-stone-900/10" />
+            </div>
+
+            <a
+              href={googleSignInUrl()}
+              className="mt-4 flex items-center justify-center gap-2 rounded-full border border-stone-900/10 bg-stone-900/[0.03] py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-900/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            >
+              <svg viewBox="0 0 18 18" className="h-4 w-4" aria-hidden="true">
+                <path
+                  fill="#4285F4"
+                  d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.71v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.61z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.36 0-4.36-1.6-5.08-3.75H.9v2.33A8.99 8.99 0 0 0 9 18z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M3.92 10.67a5.4 5.4 0 0 1 0-3.34V5H.9a8.99 8.99 0 0 0 0 8l3.02-2.33z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A8.99 8.99 0 0 0 .9 5l3.02 2.33C4.64 5.18 6.64 3.58 9 3.58z"
+                />
+              </svg>
+              Continue with Google
+            </a>
 
             <button
               type="button"
