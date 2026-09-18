@@ -20,6 +20,15 @@ function ChevronDownIcon({ open }: { open: boolean }) {
   );
 }
 
+function InboxIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 4h12v8H2z" />
+      <path d="M2 4l6 5 6-5" />
+    </svg>
+  );
+}
+
 function SettingsIcon() {
   return (
     <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
@@ -79,6 +88,16 @@ export function Header() {
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        {isAuthenticated && (
+          <Link
+            to="/inbox"
+            aria-label="Inbox"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          >
+            <InboxIcon />
+          </Link>
+        )}
+
         {isAuthenticated && (
           <Link
             to="/settings"
