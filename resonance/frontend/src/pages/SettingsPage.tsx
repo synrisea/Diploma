@@ -170,7 +170,7 @@ function ProfileSection() {
             className={inputClass}
           >
             {LANGUAGE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
+              <option key={option.value} value={option.value} className="bg-panel text-stone-900">
                 {option.label}
               </option>
             ))}
