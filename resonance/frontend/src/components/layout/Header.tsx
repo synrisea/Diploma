@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { useHeatmap } from '../../heatmap/HeatmapContext';
 import { useDimensions } from '../../hooks/useDimensions';
+import { useFriendRequests } from '../../hooks/useFriendRequests';
 import { HeatmapControl } from '../map/HeatmapControl';
 import { RouteSearchBar } from '../route/RouteSearchBar';
 import { Logo } from './Logo';
@@ -29,6 +30,17 @@ function InboxIcon() {
   );
 }
 
+function FriendsIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="6" cy="5.5" r="2.25" />
+      <path d="M1.5 13c0-2.2 2-3.75 4.5-3.75s4.5 1.55 4.5 3.75" />
+      <path d="M10.5 3.25c1.1.2 2 1.1 2 2.25s-.9 2.05-2 2.25" />
+      <path d="M12 9.35c1.5.25 2.5 1.5 2.5 3.15" />
+    </svg>
+  );
+}
+
 function SettingsIcon() {
   return (
     <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
@@ -47,6 +59,8 @@ export function Header() {
   const { pathname } = useLocation();
   const { mode, setMode } = useHeatmap();
   const { data: dimensions = [] } = useDimensions();
+  const { data: friendRequests = [] } = useFriendRequests();
+  const incomingRequestCount = friendRequests.filter((r) => r.isIncoming).length;
 
   const onMapRoute = pathname === '/';
   const activeDimension = mode?.kind === 'dimension' ? dimensions.find((d) => d.id === mode.dimensionId) : null;
@@ -95,6 +109,19 @@ export function Header() {
             className="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
             <InboxIcon />
+          </Link>
+        )}
+
+        {isAuthenticated && (
+          <Link
+            to="/friends"
+            aria-label="Find friends"
+            className="relative flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          >
+            <FriendsIcon />
+            {incomingRequestCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-brand-500 shadow-[0_0_6px_1px_rgba(255,106,57,0.6)]" />
+            )}
           </Link>
         )}
 

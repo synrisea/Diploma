@@ -1,4 +1,4 @@
-import type { ConnectionMessage, ConversationSummary, VisitIntent } from '../types/connections';
+import type { ConnectionMessage, ConversationSummary, FriendRequest, VisitIntent } from '../types/connections';
 
 const CONNECTIONS_API_BASE_URL = import.meta.env.VITE_CONNECTIONS_API_BASE_URL ?? 'http://localhost:5122';
 
@@ -86,4 +86,31 @@ export async function blockUser(accessToken: string, blockedUserId: string): Pro
 
 export async function unblockUser(accessToken: string, blockedUserId: string): Promise<void> {
   await authedFetch(`/api/connections/blocks/${blockedUserId}`, accessToken, { method: 'DELETE' });
+}
+
+export async function sendFriendRequest(accessToken: string, recipientUserId: string): Promise<{ requestId: string }> {
+  const response = await authedFetch('/api/connections/friend-requests', accessToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recipientUserId }),
+  });
+  return (await response.json()) as { requestId: string };
+}
+
+export async function getFriendRequests(accessToken: string): Promise<FriendRequest[]> {
+  const response = await authedFetch('/api/connections/friend-requests', accessToken);
+  return (await response.json()) as FriendRequest[];
+}
+
+export async function acceptFriendRequest(accessToken: string, requestId: string): Promise<void> {
+  await authedFetch(`/api/connections/friend-requests/${requestId}/accept`, accessToken, { method: 'POST' });
+}
+
+export async function declineFriendRequest(accessToken: string, requestId: string): Promise<void> {
+  await authedFetch(`/api/connections/friend-requests/${requestId}/decline`, accessToken, { method: 'POST' });
+}
+
+export async function getFriends(accessToken: string): Promise<string[]> {
+  const response = await authedFetch('/api/connections/friends', accessToken);
+  return (await response.json()) as string[];
 }

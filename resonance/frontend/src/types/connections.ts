@@ -21,3 +21,10 @@ export interface ConnectionMessage {
   body: string;
   createdAt: string;
 }
+
+export interface FriendRequest {
+  id: string;
+  otherUserId: string;
+  isIncoming: boolean;
+  createdAt: string;
+}

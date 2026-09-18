@@ -9,9 +9,12 @@ import { useStartEmailChange } from '../hooks/useStartEmailChange';
 import { useSessions } from '../hooks/useSessions';
 import { useRevokeSession } from '../hooks/useRevokeSession';
 import { useRevokeOtherSessions } from '../hooks/useRevokeOtherSessions';
+import { useFriends } from '../hooks/useFriends';
+import { usePublicProfilesByIds } from '../hooks/usePublicProfilesByIds';
 import { formatRelativeTime } from '../lib/formatRelativeTime';
 import { AvatarCropper } from '../components/settings/AvatarCropper';
 import { BackLink } from '../components/layout/BackLink';
+import { Link } from 'react-router-dom';
 
 const inputClass =
   'rounded-xl border border-stone-900/10 bg-stone-900/[0.03] px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-500 focus:border-brand-500 focus:outline-2 focus:outline-brand-500 focus:-outline-offset-1';
@@ -391,6 +394,40 @@ function SessionsSection() {
   );
 }
 
+function FriendsSection() {
+  const { data: friendIds = [] } = useFriends();
+  const { data: profiles } = usePublicProfilesByIds(friendIds);
+
+  if (friendIds.length === 0) return null;
+
+  return (
+    <section className="flex flex-col gap-3 border-t border-stone-900/10 pt-4">
+      <SectionHeading>Friends</SectionHeading>
+
+      <div className="flex flex-col gap-2">
+        {friendIds.map((friendId) => {
+          const profile = profiles?.[friendId];
+          const displayName = profile?.displayName ?? 'Someone';
+          const initial = displayName.charAt(0).toUpperCase();
+
+          return (
+            <Link
+              key={friendId}
+              to={`/users/${friendId}`}
+              className="flex items-center gap-2.5 rounded-xl border border-stone-900/10 bg-stone-900/[0.025] px-3.5 py-3 transition-colors hover:bg-stone-900/[0.05]"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500 font-display text-xs font-medium text-brand-ink">
+                {profile?.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" /> : initial}
+              </div>
+              <p className="truncate text-sm font-medium text-stone-900">{displayName}</p>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -408,6 +445,7 @@ export function SettingsPage() {
         <AvatarSection />
         <EmailSection />
         <SessionsSection />
+        <FriendsSection />
       </div>
     </div>
   );

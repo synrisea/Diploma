@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { usePublicProfile } from '../hooks/usePublicProfile';
 import { useUserComments } from '../hooks/useUserComments';
 import { usePlacesInBoundingBox } from '../hooks/usePlacesInBoundingBox';
 import { DISTRICT_BOUNDS } from '../lib/mapConstants';
 import { PhotoLightbox } from '../components/feedback/PhotoLightbox';
 import { BackLink } from '../components/layout/BackLink';
+import { FriendButton } from '../components/connections/FriendButton';
 import { formatRelativeTime } from '../lib/formatRelativeTime';
 
 const labelClass = 'font-mono text-[10px] uppercase tracking-[0.1em] text-stone-500';
@@ -77,7 +78,7 @@ export function UserProfilePage() {
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8">
         <div className="flex items-center gap-4">
           <ProfileAvatar displayName={profile.displayName} avatarUrl={profile.avatarUrl} />
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="font-display text-2xl text-stone-900">{profile.displayName}</h1>
             <p className="mt-1 font-mono text-xs text-stone-500">
               Member since {formatRelativeTime(profile.memberSince)}
@@ -86,6 +87,17 @@ export function UserProfilePage() {
                 : ''}
             </p>
           </div>
+          {id && (
+            <div className="flex shrink-0 items-center gap-1.5">
+              <FriendButton targetUserId={id} />
+              <Link
+                to={`/messages/new?with=${id}`}
+                className="rounded-full border border-stone-900/10 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] text-stone-500 transition-colors hover:text-stone-900"
+              >
+                Message
+              </Link>
+            </div>
+          )}
         </div>
 
         <p className="text-sm text-stone-700">

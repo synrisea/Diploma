@@ -98,3 +98,10 @@ export async function getPublicProfile(id: string): Promise<PublicProfileDetail 
   if (!response.ok) throw new Error('Failed to load profile.');
   return (await response.json()) as PublicProfileDetail;
 }
+
+export async function searchUsers(query: string): Promise<PublicProfile[]> {
+  if (query.trim().length === 0) return [];
+  const response = await fetch(`${IDENTITY_API_BASE_URL}/api/identity/users/search?q=${encodeURIComponent(query)}`);
+  if (!response.ok) throw new Error('Failed to search users.');
+  return (await response.json()) as PublicProfile[];
+}
