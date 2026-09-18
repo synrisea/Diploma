@@ -81,6 +81,13 @@ app.MapGet("/api/feedback/places/{placeId:guid}/comments", async (
     return Results.Ok(result);
 });
 
+app.MapGet("/api/feedback/users/{userId:guid}/comments", async (
+    Guid userId, int? limit, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    var result = await mediator.Send(new GetCommentsByUserQuery(userId, limit ?? 50), cancellationToken);
+    return Results.Ok(result);
+});
+
 app.MapGet("api/feedback/comments", async (
     DateTime? after, int? limit, IMediator mediator, CancellationToken cancellationToken) =>
 {
