@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useProfile } from '../hooks/useProfile';
 import { useUpdateProfile } from '../hooks/useUpdateProfile';
@@ -11,6 +11,7 @@ import { useRevokeSession } from '../hooks/useRevokeSession';
 import { useRevokeOtherSessions } from '../hooks/useRevokeOtherSessions';
 import { formatRelativeTime } from '../lib/formatRelativeTime';
 import { AvatarCropper } from '../components/settings/AvatarCropper';
+import { BackLink } from '../components/layout/BackLink';
 
 const inputClass =
   'rounded-xl border border-stone-900/10 bg-stone-900/[0.03] px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-500 focus:border-brand-500 focus:outline-2 focus:outline-brand-500 focus:-outline-offset-1';
@@ -31,20 +32,89 @@ function SectionHeading({ children }: { children: string }) {
   return <p className={labelClass}>{children}</p>;
 }
 
+const LANGUAGE_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Not set' },
+  { value: 'az', label: 'Azerbaijani' },
+  { value: 'ru', label: 'Russian' },
+  { value: 'en', label: 'English' },
+];
+const MAX_INTERESTS = 10;
+const MAX_BIO_LENGTH = 500;
+
+function InterestChips({
+  interests,
+  onRemove,
+}: {
+  interests: string[];
+  onRemove: (interest: string) => void;
+}) {
+  if (interests.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {interests.map((interest) => (
+        <span
+          key={interest}
+          className="inline-flex items-center gap-1 rounded-full bg-brand-500/15 px-2.5 py-1 font-mono text-[11px] text-brand-500"
+        >
+          {interest}
+          <button
+            type="button"
+            onClick={() => onRemove(interest)}
+            aria-label={`Remove ${interest}`}
+            className="text-brand-500 hover:text-brand-600"
+          >
+            ×
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function ProfileSection() {
   const { data: profile } = useProfile();
   const updateProfile = useUpdateProfile();
   const [displayName, setDisplayName] = useState('');
+  const [bio, setBio] = useState('');
+  const [interests, setInterests] = useState<string[]>([]);
+  const [interestInput, setInterestInput] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState('');
 
   useEffect(() => {
-    if (profile) setDisplayName(profile.displayName);
+    if (profile) {
+      setDisplayName(profile.displayName);
+      setBio(profile.bio ?? '');
+      setInterests(profile.interests);
+      setPreferredLanguage(profile.preferredLanguage ?? '');
+    }
   }, [profile]);
+
+  const addInterest = () => {
+    const trimmed = interestInput.trim();
+    if (trimmed && !interests.includes(trimmed) && interests.length < MAX_INTERESTS) {
+      setInterests([...interests, trimmed]);
+    }
+    setInterestInput('');
+  };
+
+  const handleInterestKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addInterest();
+    }
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const trimmed = displayName.trim();
     if (!trimmed) return;
-    updateProfile.mutate({ displayName: trimmed });
+    updateProfile.mutate({
+      displayName: trimmed,
+      bio: bio.trim(),
+      interests,
+      preferredLanguage,
+    });
   };
 
   return (
@@ -60,6 +130,51 @@ function ProfileSection() {
             onChange={(e) => setDisplayName(e.target.value)}
             className={inputClass}
           />
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-sm">
+          <span className="font-medium text-stone-700">Bio</span>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="Tell people a bit about yourself"
+            rows={3}
+            maxLength={MAX_BIO_LENGTH}
+            className={inputClass}
+          />
+          <span className="font-mono text-[11px] text-stone-500">
+            {bio.length}/{MAX_BIO_LENGTH}
+          </span>
+        </label>
+
+        <div className="flex flex-col gap-1.5 text-sm">
+          <span className="font-medium text-stone-700">Interests</span>
+          <InterestChips interests={interests} onRemove={(i) => setInterests(interests.filter((x) => x !== i))} />
+          <input
+            type="text"
+            value={interestInput}
+            onChange={(e) => setInterestInput(e.target.value)}
+            onKeyDown={handleInterestKeyDown}
+            onBlur={addInterest}
+            disabled={interests.length >= MAX_INTERESTS}
+            placeholder={interests.length >= MAX_INTERESTS ? `Up to ${MAX_INTERESTS} interests` : 'Type and press Enter'}
+            className={inputClass}
+          />
+        </div>
+
+        <label className="flex flex-col gap-1.5 text-sm">
+          <span className="font-medium text-stone-700">Preferred language</span>
+          <select
+            value={preferredLanguage}
+            onChange={(e) => setPreferredLanguage(e.target.value)}
+            className={inputClass}
+          >
+            {LANGUAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
 
         {updateProfile.isError && (
@@ -273,20 +388,6 @@ function SessionsSection() {
         ))}
       </div>
     </section>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      to="/"
-      className="fixed left-6 top-20 z-30 inline-flex items-center gap-1.5 rounded-full border border-stone-900/10 bg-panel/90 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] text-stone-500 shadow-[0_12px_30px_-10px_rgba(0,0,0,0.6)] backdrop-blur-md transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-    >
-      <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" aria-hidden="true">
-        <path d="M7.5 2.5L3 6l4.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      Back
-    </Link>
   );
 }
 

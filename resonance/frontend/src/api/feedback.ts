@@ -8,6 +8,12 @@ export async function getPlaceComments(placeId: string): Promise<PlaceComment[]>
   return (await response.json()) as PlaceComment[];
 }
 
+export async function getUserComments(userId: string, limit = 200): Promise<PlaceComment[]> {
+  const response = await fetch(`${FEEDBACK_API_BASE_URL}/api/feedback/users/${userId}/comments?limit=${limit}`);
+  if (!response.ok) throw new Error('Failed to load comments.');
+  return (await response.json()) as PlaceComment[];
+}
+
 export async function submitComment(token: string, placeId: string, comment: string): Promise<{ id: string }> {
   const response = await fetch(`${FEEDBACK_API_BASE_URL}/api/feedback`, {
     method: 'POST',

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { usePlaceComments } from '../../hooks/usePlaceComments';
 import { useCommentAuthors } from '../../hooks/useCommentAuthors';
 import { PhotoLightbox } from './PhotoLightbox';
@@ -35,10 +36,10 @@ export function CommentList({ placeId }: { placeId: string }) {
 
           return (
             <li key={comment.id} className="rounded-xl border border-stone-900/10 bg-stone-900/[0.025] p-3 text-sm text-stone-700">
-              <div className="flex items-center gap-2">
+              <Link to={`/users/${comment.userId}`} className="flex items-center gap-2 hover:opacity-80">
                 <CommentAvatar displayName={displayName} avatarUrl={author?.avatarUrl ?? null} />
                 <p className="font-medium text-stone-900">{displayName}</p>
-              </div>
+              </Link>
               <p className="mt-2">{comment.comment}</p>
               {comment.photoUrls.length > 0 && (
                 <div className="mt-2 flex gap-1.5 overflow-x-auto">

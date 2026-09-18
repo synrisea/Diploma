@@ -7,7 +7,13 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (updates: { displayName?: string; preferencesJson?: string }) => {
+    mutationFn: async (updates: {
+      displayName?: string;
+      preferencesJson?: string;
+      bio?: string;
+      interests?: string[];
+      preferredLanguage?: string;
+    }) => {
       const token = await getValidAccessToken();
       return updateProfile(token, updates);
     },

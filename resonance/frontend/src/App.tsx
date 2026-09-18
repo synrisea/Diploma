@@ -3,6 +3,7 @@ import { Header } from './components/layout/Header';
 import { MapPage } from './pages/MapPage';
 import { LoginPage } from './pages/LoginPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { UserProfilePage } from './pages/UserProfilePage';
 import { GoogleCallbackPage } from './pages/GoogleCallbackPage';
 import { HeatmapProvider } from './heatmap/HeatmapContext';
 import { RouteProvider } from './route/RouteContext';
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="/" element={<MapPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/users/:id" element={<UserProfilePage />} />
             <Route path="/auth/callback" element={<GoogleCallbackPage />} />
           </Routes>
         </RouteProvider>

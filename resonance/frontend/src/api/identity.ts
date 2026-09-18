@@ -1,4 +1,4 @@
-import type { PublicProfile, Session, UserProfile } from '../types/identity';
+import type { PublicProfile, PublicProfileDetail, Session, UserProfile } from '../types/identity';
 
 const IDENTITY_API_BASE_URL = import.meta.env.VITE_IDENTITY_API_BASE_URL ?? 'http://localhost:5076';
 
@@ -36,7 +36,13 @@ export async function getMe(accessToken: string): Promise<UserProfile> {
 
 export async function updateProfile(
   accessToken: string,
-  updates: { displayName?: string; preferencesJson?: string },
+  updates: {
+    displayName?: string;
+    preferencesJson?: string;
+    bio?: string;
+    interests?: string[];
+    preferredLanguage?: string;
+  },
 ): Promise<void> {
   await authedFetch('/api/identity/me', accessToken, {
     method: 'PATCH',
@@ -84,4 +90,11 @@ export async function getPublicProfiles(ids: string[]): Promise<PublicProfile[]>
   const response = await fetch(`${IDENTITY_API_BASE_URL}/api/identity/public-profiles?${params.toString()}`);
   if (!response.ok) throw new Error('Failed to load comment authors.');
   return (await response.json()) as PublicProfile[];
+}
+
+export async function getPublicProfile(id: string): Promise<PublicProfileDetail | null> {
+  const response = await fetch(`${IDENTITY_API_BASE_URL}/api/identity/users/${id}/public-profile`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error('Failed to load profile.');
+  return (await response.json()) as PublicProfileDetail;
 }
