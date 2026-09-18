@@ -12,6 +12,11 @@ using Resonance.Connections.Application.Conversations.CreateConversation;
 using Resonance.Connections.Application.Conversations.GetConversations;
 using Resonance.Connections.Application.Conversations.GetMessages;
 using Resonance.Connections.Application.Conversations.SendMessage;
+using Resonance.Connections.Application.FriendRequests.AcceptFriendRequest;
+using Resonance.Connections.Application.FriendRequests.DeclineFriendRequest;
+using Resonance.Connections.Application.FriendRequests.GetFriendRequests;
+using Resonance.Connections.Application.FriendRequests.SendFriendRequest;
+using Resonance.Connections.Application.Friends.GetFriends;
 using Resonance.Connections.Application.Intents.CreateIntent;
 using Resonance.Connections.Application.Intents.DeleteIntent;
 using Resonance.Connections.Application.Intents.GetIntents;
@@ -179,6 +184,77 @@ app.MapDelete("/api/connections/blocks/{blockedUserId:guid}", async (
 
     await mediator.Send(new DeleteBlockCommand(userId, blockedUserId), cancellationToken);
     return Results.NoContent();
+}).RequireAuthorization();
+
+app.MapPost("/api/connections/friend-requests", async (
+    SendFriendRequestRequest request, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    try
+    {
+        var outcome = await mediator.Send(new SendFriendRequestCommand(userId, request.RecipientUserId), cancellationToken);
+        return outcome.Status switch
+        {
+            SendFriendRequestStatus.Sent => Results.Ok(new { requestId = outcome.RequestId }),
+            SendFriendRequestStatus.AlreadyPending => Results.Conflict(new { error = "A friend request is already pending between you two." }),
+            SendFriendRequestStatus.AlreadyFriends => Results.Conflict(new { error = "You're already friends." }),
+            SendFriendRequestStatus.Blocked => Results.Conflict(new { error = "Friend requests aren't available between these two accounts." }),
+            _ => Results.Problem(),
+        };
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).RequireAuthorization();
+
+app.MapGet("/api/connections/friend-requests", async (
+    ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    var result = await mediator.Send(new GetFriendRequestsQuery(userId), cancellationToken);
+    return Results.Ok(result);
+}).RequireAuthorization();
+
+app.MapPost("/api/connections/friend-requests/{requestId:guid}/accept", async (
+    Guid requestId, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    var status = await mediator.Send(new AcceptFriendRequestCommand(requestId, userId), cancellationToken);
+    return status switch
+    {
+        AcceptFriendRequestStatus.Accepted => Results.NoContent(),
+        AcceptFriendRequestStatus.NotFound => Results.NotFound(),
+        AcceptFriendRequestStatus.Forbidden => Results.Forbid(),
+        _ => Results.Problem(),
+    };
+}).RequireAuthorization();
+
+app.MapPost("/api/connections/friend-requests/{requestId:guid}/decline", async (
+    Guid requestId, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    var status = await mediator.Send(new DeclineFriendRequestCommand(requestId, userId), cancellationToken);
+    return status switch
+    {
+        DeclineFriendRequestStatus.Declined => Results.NoContent(),
+        DeclineFriendRequestStatus.NotFound => Results.NotFound(),
+        DeclineFriendRequestStatus.Forbidden => Results.Forbid(),
+        _ => Results.Problem(),
+    };
+}).RequireAuthorization();
+
+app.MapGet("/api/connections/friends", async (
+    ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    var result = await mediator.Send(new GetFriendsQuery(userId), cancellationToken);
+    return Results.Ok(result);
 }).RequireAuthorization();
 
 app.Run();
