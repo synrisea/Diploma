@@ -10,6 +10,9 @@ public class User
     public string? PreferencesJson {get; private set;}
     public DateTime CreatedAt { get; private set; }
     public string? AvatarUrl { get; private set; }
+    public string? Bio { get; private set; }
+    public List<string> Interests { get; private set; } = [];
+    public string? PreferredLanguage { get; private set; }
 
     private User() {}
 
@@ -46,6 +49,21 @@ public class User
     public void UpdateAvatarUrl(string? avatarUrl)
     {
         AvatarUrl = avatarUrl;
+    }
+
+    public void UpdateBio(string? bio)
+    {
+        Bio = bio;
+    }
+
+    public void UpdateInterests(List<string> interests)
+    {
+        Interests = interests;
+    }
+
+    public void UpdatePreferredLanguage(string? preferredLanguage)
+    {
+        PreferredLanguage = preferredLanguage;
     }
 
     public void ChangeEmail(string newEmail)

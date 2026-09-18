@@ -18,6 +18,8 @@ public class GetMeHandler : IRequestHandler<GetMeQuery, UserProfileDto>
         var user = await _context.Users.SingleOrDefaultAsync(u => u.Id == request.UserId, cancellationToken)
             ?? throw new InvalidOperationException("User not found.");
 
-        return new UserProfileDto(user.Id, user.Email, user.DisplayName, user.AvatarUrl, user.PreferencesJson, user.CreatedAt);
+        return new UserProfileDto(
+            user.Id, user.Email, user.DisplayName, user.AvatarUrl, user.PreferencesJson, user.CreatedAt,
+            user.Bio, user.Interests, user.PreferredLanguage);
     }
 }

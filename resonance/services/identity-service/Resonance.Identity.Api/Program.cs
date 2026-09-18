@@ -15,6 +15,7 @@ using Resonance.Identity.Application.Auth.Refresh;
 using Resonance.Identity.Application.Auth.Register;
 using Resonance.Identity.Application.Common;
 using Resonance.Identity.Application.Profile.GetMe;
+using Resonance.Identity.Application.Profile.GetPublicProfile;
 using Resonance.Identity.Application.Profile.UpdateProfile;
 using Resonance.Identity.Application.Profile.UploadAvatar;
 using Resonance.Identity.Application.Sessions.GetSessions;
@@ -171,7 +172,7 @@ app.MapPatch("/api/identity/me", async (
 
     try
     {
-        await mediator.Send(new UpdateProfileCommand(userId, request.DisplayName, request.PreferencesJson), cancellationToken);
+        await mediator.Send(new UpdateProfileCommand(userId, request.DisplayName, request.PreferencesJson, request.Bio, request.Interests, request.PreferredLanguage), cancellationToken);
         return Results.NoContent();
     }
     catch (ArgumentException ex)
@@ -226,6 +227,13 @@ app.MapGet("/api/identity/public-profiles", async (
 {
     var result = await mediator.Send(new GetUsersByIdsQuery(ids), cancellationToken);
     return Results.Ok(result);
+});
+
+app.MapGet("/api/identity/users/{id:guid}/public-profile", async (
+    Guid id, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    var result = await mediator.Send(new GetPublicProfileQuery(id), cancellationToken);
+    return result is null ? Results.NotFound() : Results.Ok(result);
 });
 
 app.MapPut("/api/identity/me/avatar", async(
