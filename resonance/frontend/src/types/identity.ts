@@ -26,6 +26,14 @@ export interface PublicProfileDetail {
   memberSince: string;
 }
 
+export interface UserSearchResult {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  memberSince: string;
+}
+
 export interface Session {
   id: string;
   deviceLabel: string | null;

@@ -1,11 +1,10 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Resonance.Identity.Application.Common;
-using Resonance.Identity.Application.Users.GetByIds;
 
 namespace Resonance.Identity.Application.Users.Search;
 
-public class SearchUsersHandler : IRequestHandler<SearchUsersQuery, List<UserSummaryDto>>
+public class SearchUsersHandler : IRequestHandler<SearchUsersQuery, List<UserSearchResultDto>>
 {
     private readonly IApplicationDbContext _context;
 
@@ -14,7 +13,7 @@ public class SearchUsersHandler : IRequestHandler<SearchUsersQuery, List<UserSum
         _context = context;
     }
 
-    public async Task<List<UserSummaryDto>> Handle(SearchUsersQuery request, CancellationToken cancellationToken)
+    public async Task<List<UserSearchResultDto>> Handle(SearchUsersQuery request, CancellationToken cancellationToken)
     {
         var query = request.Query.Trim().ToLower();
         if (query.Length == 0)
@@ -24,7 +23,7 @@ public class SearchUsersHandler : IRequestHandler<SearchUsersQuery, List<UserSum
             .Where(u => u.DisplayName.ToLower().Contains(query))
             .OrderBy(u => u.DisplayName)
             .Take(20)
-            .Select(u => new UserSummaryDto(u.Id, u.DisplayName, u.AvatarUrl))
+            .Select(u => new UserSearchResultDto(u.Id, u.DisplayName, u.AvatarUrl, u.Bio, u.CreatedAt))
             .ToListAsync(cancellationToken);
     }
 }

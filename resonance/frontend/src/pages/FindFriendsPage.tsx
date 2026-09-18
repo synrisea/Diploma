@@ -4,6 +4,7 @@ import { useSearchUsers } from '../hooks/useSearchUsers';
 import { useFriendRequests } from '../hooks/useFriendRequests';
 import { FriendButton } from '../components/connections/FriendButton';
 import { BackLink } from '../components/layout/BackLink';
+import { formatRelativeTime } from '../lib/formatRelativeTime';
 
 const labelClass = 'font-mono text-[10px] uppercase tracking-[0.1em] text-stone-500';
 const inputClass =
@@ -66,7 +67,13 @@ export function FindFriendsPage() {
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500 font-display text-xs font-medium text-brand-ink">
                       {result.avatarUrl ? <img src={result.avatarUrl} alt="" className="h-full w-full object-cover" /> : initial}
                     </div>
-                    <p className="truncate text-sm font-medium text-stone-900">{result.displayName}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-stone-900">{result.displayName}</p>
+                      <p className="truncate font-mono text-[11px] text-stone-500">
+                        Member since {formatRelativeTime(result.memberSince)}
+                        {result.bio ? ` · ${result.bio}` : ''}
+                      </p>
+                    </div>
                   </Link>
                   <FriendButton targetUserId={result.id} />
                 </div>
