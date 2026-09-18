@@ -1,6 +1,6 @@
 # Resonance — Progress & Roadmap
 
-Last updated: 2026-09-17. This file is the source of truth for "what's done and what's next" — update it as things change instead of relying on memory.
+Last updated: 2026-09-19. This file is the source of truth for "what's done and what's next" — update it as things change instead of relying on memory.
 
 ## Architecture at a glance
 
@@ -9,12 +9,13 @@ Last updated: 2026-09-17. This file is the source of truth for "what's done and 
 | `places-service` | ASP.NET Core, PostGIS | 5112 | Place data (imported from OSM), bbox queries for the map |
 | `identity-service` | ASP.NET Core | 5076 | Register/login, issues JWTs |
 | `feedback-service` | ASP.NET Core | 5066 | Free-text comments per place, JWT-protected submit, public read |
+| `connections-service` | ASP.NET Core | 5122 | Visit intents, chat (conversations/messages), blocks, and friend requests/friends |
 | `topics-service` | Python, FastAPI | 8010 (container listens on 8001 internally — host port moved off 8001 due to a persistent, unexplained conflict with Docker Desktop's own backend process on this machine) | AI topic discovery from comments, sentiment/dimension scoring, and (new) LLM-driven route planning. GPU-accelerated (CUDA) on this dev machine — see below. |
 | `frontend` | React, Vite, Leaflet | 5173 | The app. Lives at `frontend/` directly (moved out of `frontend/resonance-web/`). Has a `Dockerfile` and a `docker-compose.yml` entry; still fine to run locally via `npm run dev` too. |
 
 No API gateway yet (deliberate — see "Deferred, on purpose"). The frontend calls each service directly.
 
-**All four backend services + Postgres are now containerized** (`infra/docker-compose.yml`). One command brings up the whole backend:
+**All backend services + Postgres are now containerized** (`infra/docker-compose.yml`). One command brings up the whole backend:
 ```powershell
 docker compose -f infra/docker-compose.yml up -d --build
 ```
@@ -111,36 +112,30 @@ Full design in `docs/public-profiles-design.md` (implemented the day after it wa
 
 ## Next step
 
-**The shared-intention connections feature** ("Feature 2" from an approved-but-unimplemented UX proposal — see below) — the originally-requested companion to route planning. Its prerequisite (Feature 3, public profiles) shipped 2026-09-18; this is now the actual next thing, not started at all yet.
+No committed next step right now — ask before assuming which one matters most. Ideas on the table: a global "trending themes" view, AI paragraph summaries per place, recency filtering on the heatmap.
 
-Older ideas still on the table, lower priority: a global "trending themes" view, AI paragraph summaries per place, recency filtering on the heatmap. Ask before assuming which one matters most.
+## Shared-intention connections — built (2026-09-19)
 
-### Feature 2: shared-intention connections — designed, not started
+"Feature 2" from the approved UX proposal (place page → "Want to go?" → pick a rough time window → see others who share that intent → message them directly → chat, Block as the safety mechanism), plus a second, separate opt-in friend-request layer added mid-build at the user's request. New `connections-service` (mirrors the existing ASP.NET Clean Architecture + MediatR pattern, own Postgres DB, port 5122):
 
-A full UX/IA proposal was written and approved (place page → "Want to go?" → pick a rough time window → see others who share that intent → connect → chat), explicitly **not** a dating/friend-matching feature — the place and shared intent are the point, not profiles. The original proposal was delivered as a standalone document in an earlier chat session, not saved into this repo; the detail below is what's been preserved/refined since. Shape it called for, if picked back up:
-- New `connections-service` (mirrors the existing ASP.NET Clean Architecture + MediatR pattern, own Postgres DB) — entities roughly `VisitIntent` (user + place + coarse time bucket + optional `IntentTag`/note), `Conversation`/`Message`, plus a `Block`/mute record per user pair.
-- Chat via polling (React Query `refetchInterval`), not a new SignalR/WebSocket dependency — nothing in this stack does real-time today, and the user explicitly chose polling over adding that infra.
-- UI: one more section in the existing place-detail panel (not a separate "social" surface), a lightweight inbox off the header's account menu, reusing existing visual tokens rather than generic social-app patterns (no avatar grids, no card walls).
+- `VisitIntent` (user + place + coarse time bucket `Today`/`Tomorrow`/`ThisWeekend` + optional `IntentTag` note, ~60 char cap) — one per user per place, upserted. `POST/GET/DELETE /api/connections/intents`.
+- `Conversation`/`Message` — direct chat, no request gate: clicking "Message" on someone sharing your place/time intent creates the conversation (or first message) immediately. Chat via polling (React Query `refetchInterval`, 4-5s), not SignalR/WebSockets — consistent with the rest of this stack having no real-time infra. `POST/GET /api/connections/conversations`, `GET/POST /api/connections/conversations/{id}/messages`.
+- `Block` — one-directional; blocking either way hides messaging and disables the input box in that conversation. `POST /api/connections/blocks`, `DELETE /api/connections/blocks/{userId}`.
+- **Friend requests, layered on top, genuinely separate from visit intents**: the user explicitly asked to unify "no-gate visit-intent chat" with a "search someone → request → accept/decline → friends" system. `FriendRequest` (`Requester`/`Recipient`/`Status: Pending|Accepted|Declined`) — no separate `Friendship` table, "friends" is just accepted requests queried directly. `POST /api/connections/friend-requests`, `GET /api/connections/friend-requests` (caller's incoming+outgoing pending), `POST .../{id}/accept`, `POST .../{id}/decline`, `GET /api/connections/friends`. A declined request can be re-sent (old row replaced, not left dangling).
+- New anonymous `GET /api/identity/users/search?q=` (identity-service) — case-insensitive substring match on `DisplayName`, capped at 20 — needed so there's a way to find someone to friend-request at all, beyond stumbling onto their profile via a comment link.
+- Frontend: `VisitIntentSection` on the place-detail panel ("Want to go?", time-bucket + quick-tag chips, "N people going" list); `InboxPage`/`ConversationPage` (full pages, not modals, per this app's convention) with a header inbox icon; `FindFriendsPage` (`/friends`, search + incoming-requests list) with a header icon showing a dot badge when a request is pending; a relationship-aware `FriendButton` (Add friend / Request sent / Accept+Decline / Friends) reused on both `FindFriendsPage` and `UserProfilePage`; a "Friends" list in Settings. Friends can message directly from their profile page with no shared visit intent — the same conversation-creation endpoint already treated `visitIntentId` as optional.
+- Connections-service never touches identity data itself (same pattern as feedback-service) — display names/avatars for intents/conversations/friends are resolved client-side via identity-service's existing public-profile batch endpoint.
 
-**Revised (2026-09-12): connection flow simplified from mutual opt-in to direct chat.** The original two-step gate (send a connection request → wait for the other person to accept → only then chat) added too much friction for a geo/utility app rather than a dating app. Replaced with:
-- **Passive intent visibility**: setting a `VisitIntent` implicitly makes a user visible to others sharing the same coarse time bucket + place — no separate opt-in step. The place-detail panel shows a lightweight list/count of matching intents (display name/avatar if available, plus their intent tag) instead of a request/response wall.
-- **Direct chat initiation, no pending-request gate**: clicking "Message" on a peer's intent creates the conversation (or sends the first message) immediately — there's no `ConnectionRequest` blocking messaging until mutual acceptance. `ConnectionRequest` as an entity is dropped from the shape above; a `Block`/mute record replaces it as the safety mechanism.
-- **Safety moves into the chat itself**: Block / Decline / Mute live as an action inside the chat view for the recipient, rather than as an upfront handshake. This is the trade made instead of the mutual-accept gate — worth remembering if abuse/spam becomes a real problem later, since the original design's friction was also an implicit spam brake.
-
-**Intent context/tags**, so two matched people aren't messaging with zero context on why the other is going:
-- `VisitIntent` gets an optional `IntentTag`/note field (string, ~50-60 char cap).
-- When picking the time window on the place page, offer quick-select preset chips (e.g. coffee, remote work, sightseeing, drinks) plus free text.
-- The tag shows next to the name in the "who's going" list, and again at the top of the chat panel once a conversation starts, so both sides see the shared context immediately.
+Verified live end-to-end (real registered accounts, real browser sessions, not mocked): matching visit intents surfacing each other, chat + polling delivery, Block disabling further messaging on both sides, friend search → request → accept, and friend-to-friend direct messaging with no shared intent involved.
 
 ## Deferred, on purpose (don't re-suggest without new information)
 
 | Item | Why deferred |
 |---|---|
-| API Gateway | Places/Identity/Feedback duplicate Identity's JWT config; a `connections-service` (see Feature 2 above) would be the 3rd-ish service to hit this — worth a conscious look when/if that gets built, not necessarily action |
+| API Gateway | Places/Identity/Feedback/Connections all duplicate Identity's JWT config independently — worth a conscious look now that there are 4+ services, not necessarily action |
 | Trending / Favorites / Collections | Not started, no blocker — just not prioritized yet |
 | Comment moderation | Comments are deliberately public with no moderation — revisit at real volume or before a public demo |
-| MediatR licensing | MediatR 13+ requires a paid license for production use; still on the free dev/test tier. Options: accept the license, pin to MediatR 12.x (MIT), or drop MediatR for direct DI. Not decided. Would apply equally to a new `connections-service` built the same way. |
-| Shared-intention connections (Feature 2) | Fully designed/approved, not started — see "Next step" above. Its prerequisite (Feature 3, public profiles) is done. |
+| MediatR licensing | MediatR 13+ requires a paid license for production use; still on the free dev/test tier. Options: accept the license, pin to MediatR 12.x (MIT), or drop MediatR for direct DI. Not decided. Applies to `connections-service` too, built the same way. |
 | Road-network-aware route distances | Route planning uses straight-line (haversine) distance, not real walking paths (OSRM etc.) — accepted as good-enough for Torgovy's small, walkable footprint; revisit if that stops being true |
 | ngrok deployment (this laptop as workstation) | Frontend calls 4 separate backend origins directly (baked into `.env`), so tunneling just the frontend port doesn't work — needs either a reverse proxy in front of everything (one tunnel, same-origin, doubles as the API Gateway item above) or 5 separate tunnels + CORS allow-list updates in 3 `.cs` files + topics-service's `FRONTEND_CORS_ORIGINS` every time a free-tier ngrok URL changes. Also: free-tier ngrok's browser-warning interstitial intercepts `fetch`/XHR calls too, not just page loads — needs `ngrok-skip-browser-warning: true` on requests regardless of which approach is used. Revisit when there's an actual audience to demo to. |
 
