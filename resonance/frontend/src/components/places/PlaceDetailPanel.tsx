@@ -3,6 +3,7 @@ import { getCategoryStyle } from '../../lib/categoryStyles';
 import { CommentList } from '../feedback/CommentList';
 import { CommentForm } from '../feedback/CommentForm';
 import { TopicBadges } from '../topics/TopicBadges';
+import { VisitIntentSection } from './VisitIntentSection';
 
 interface PlaceDetailPanelProps {
   place: PlaceDto;
@@ -42,6 +43,8 @@ export function PlaceDetailPanel({ place, onBack }: PlaceDetailPanelProps) {
         <div className="mt-3">
           <TopicBadges placeId={place.id} />
         </div>
+
+        <VisitIntentSection placeId={place.id} />
 
         <div className="mt-6 border-t border-stone-900/10 pt-4">
           <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] text-stone-500">Comments</h3>
