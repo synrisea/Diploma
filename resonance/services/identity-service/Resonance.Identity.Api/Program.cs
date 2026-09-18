@@ -22,6 +22,7 @@ using Resonance.Identity.Application.Sessions.GetSessions;
 using Resonance.Identity.Application.Sessions.RevokeOtherSessions;
 using Resonance.Identity.Application.Sessions.RevokeSession;
 using Resonance.Identity.Application.Users.GetByIds;
+using Resonance.Identity.Application.Users.Search;
 using Resonance.Identity.Application.Profile.DeleteAvatar;
 using Resonance.Identity.Application.EmailChange.StartEmailChange;
 using Resonance.Identity.Application.EmailChange.ConfirmEmailChange;
@@ -226,6 +227,13 @@ app.MapGet("/api/identity/public-profiles", async (
     Guid[] ids, IMediator mediator, CancellationToken cancellationToken) =>
 {
     var result = await mediator.Send(new GetUsersByIdsQuery(ids), cancellationToken);
+    return Results.Ok(result);
+});
+
+app.MapGet("/api/identity/users/search", async (
+    string q, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    var result = await mediator.Send(new SearchUsersQuery(q), cancellationToken);
     return Results.Ok(result);
 });
 
