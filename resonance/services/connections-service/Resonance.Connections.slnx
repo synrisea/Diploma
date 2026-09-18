@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Resonance.Connections.Api/Resonance.Connections.Api.csproj" />
+  <Project Path="Resonance.Connections.Application/Resonance.Connections.Application.csproj" />
+  <Project Path="Resonance.Connections.Domain/Resonance.Connections.Domain.csproj" />
+  <Project Path="Resonance.Connections.Infrastructure/Resonance.Connections.Infrastructure.csproj" />
+</Solution>

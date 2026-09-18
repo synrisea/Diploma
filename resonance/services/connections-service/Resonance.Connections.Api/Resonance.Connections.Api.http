@@ -1,0 +1,6 @@
+@Resonance.Connections.Api_HostAddress = http://localhost:5122
+
+GET {{Resonance.Connections.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
