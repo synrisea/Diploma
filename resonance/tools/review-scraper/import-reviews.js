@@ -28,7 +28,7 @@ const s3 = new S3Client({
 });
 
 function upsizeGoogleUrl(url, width, height) {
-  return url.replace(/=w\d+-h\d+/, `=w${width}-h${height}`);
+  return url.replace(/=w\d+-h\d+.*$/, `=w${width}-h${height}`);
 }
 
 async function downloadBuffer(url) {
