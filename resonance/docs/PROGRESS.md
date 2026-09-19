@@ -112,7 +112,12 @@ Full design in `docs/public-profiles-design.md` (implemented the day after it wa
 
 ## Next step
 
-No committed next step right now — ask before assuming which one matters most. Ideas on the table: a global "trending themes" view, AI paragraph summaries per place, recency filtering on the heatmap.
+Two AI-quality problems are now **diagnosed and designed, not yet implemented** — both were investigated against live data on 2026-09-19 and both turned out to be worse than they looked:
+
+- **Place tags / topic badges** — `docs/place-tags-design.md`. Measured: 122 clusters for 2,859 comments (median size 5), places showing up to 10 badges off 14 comments, badge counts displaying the *global* cluster size rather than the place's own, contradictory badges side by side ("Rude Service" next to "Well-Mannered Staff"), and nonsense labels ("Voltage Chiller"). Root causes are over-fragmented clustering, a membership-not-relevance badge rule, and label selection by word count. The top two fixes are small.
+- **Route planning** — `docs/route-planning-v2-design.md`. Measured: 0 of 4 realistic wishes answered correctly; "a cafe" returns *nothing* while 77 cafés sit in the candidate list; "coffee" matches the place literally named "Coffee Moffie" while skipping all 77. Cause is 276 undifferentiated candidates in one prompt plus a prompt that carries only name+category — none of the topic/sentiment data topics-service itself computed. Proven fix direction: the same model with the same prompt on a 24-item shortlist returns four real cafés. Design is retrieve → rank → conditionally verify.
+
+Older ideas still on the table, lower priority: a global "trending themes" view, AI paragraph summaries per place, recency filtering on the heatmap.
 
 ## Shared-intention connections — built (2026-09-19)
 
