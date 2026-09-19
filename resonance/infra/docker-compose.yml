@@ -47,6 +47,8 @@ services:
       Aws__SecretAccessKey: ${AWS_SECRET_ACCESS_KEY}
       Aws__Region: ${AWS_REGION}
       Aws__AvatarsBucketName: ${AWS_AVATARS_BUCKET_NAME}
+      Google__ClientId: ${GOOGLE_CLIENT_ID}
+      Google__ClientSecret: ${GOOGLE_CLIENT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
