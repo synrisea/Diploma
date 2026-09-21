@@ -120,7 +120,9 @@ def label_clusters(comments: list[str], labels: np.ndarray, top_n : int = 5) -> 
 
 def sample_comments(comments: list[str], embeddings: np.ndarray, labels: np.ndarray, top_n: int = 4) -> dict[int, list[str]]:
     """For each cluster, return the comments closest to the cluster's centroid
-    (embeddings are normalize_embeddings=True, so cosine similarity = dot product)."""
+    (embeddings are normalize_embeddings=True, so cosine similarity = dot product).
+    Distinct texts only - a fifth of this corpus is short repeated praise, so the
+    nearest four are often the same sentence four times."""
     result: dict[int, list[str]] = {}
     for cluster_id in set(labels):
         if cluster_id == -1:
@@ -130,8 +132,19 @@ def sample_comments(comments: list[str], embeddings: np.ndarray, labels: np.ndar
         centroid = member_embeddings.mean(axis=0)
         centroid = centroid / np.linalg.norm(centroid)
         similarities = member_embeddings @ centroid
-        order = np.argsort(-similarities)[:top_n]
-        result[cluster_id] = [comments[member_idx[i]] for i in order]
+
+        picked: list[str] = []
+        seen: set[str] = set()
+        for i in np.argsort(-similarities):
+            text = comments[member_idx[i]]
+            key = text.strip().lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            picked.append(text)
+            if len(picked) == top_n:
+                break
+        result[cluster_id] = picked
 
     return result
 
