@@ -430,9 +430,13 @@ Neither would have surfaced from reading the code:
 - **Tabs, not nested routes.** §9's IA proposed `/admin/topics/review` style paths. Implemented as a
   single `/admin` route with client-side tabs — same information architecture, less routing code, and
   no deep-link requirement exists yet.
-- **Merge is API-only.** `POST /api/admin/topics/merge` works and is audited, but has no UI control
-  yet; merging is currently a curl away rather than a click.
-- **Dimension rename is API-only** for the same reason. Demote has a button.
+- **Merge and dimension rename now have UI.** Both were API-only in the first pass. Merge is a
+  two-step flow (pick a source, then pick its destination from the list) rather than a dropdown,
+  since it reads more clearly with 65 topics. Rename edits inline.
+- **Destructive actions arm before firing.** §1's principle 3 called for a confirm step naming the
+  object; the first pass shipped without one. Reject and demote now require a second click and name
+  what they will act on, implemented inline rather than as a modal to match the app's no-modal
+  convention.
 - **No `expectedRevision` on reject/reopen**, only on approve. Rejection is not label-specific, so a
   concurrent retrain cannot make it wrong in the way it can for an approval.
 
