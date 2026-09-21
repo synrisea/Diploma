@@ -89,7 +89,7 @@ export function UserProfilePage() {
           </div>
           {id && (
             <div className="flex shrink-0 items-center gap-1.5">
-              <FriendButton targetUserId={id} />
+              <FriendButton targetUserId={id} showMessage={false} />
               <Link
                 to={`/messages/new?with=${id}`}
                 className="rounded-full border border-stone-900/10 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] text-stone-500 transition-colors hover:text-stone-900"

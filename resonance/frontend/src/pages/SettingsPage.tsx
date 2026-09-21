@@ -15,6 +15,7 @@ import { formatRelativeTime } from '../lib/formatRelativeTime';
 import { AvatarCropper } from '../components/settings/AvatarCropper';
 import { BackLink } from '../components/layout/BackLink';
 import { Link } from 'react-router-dom';
+import { FriendButton } from '../components/connections/FriendButton';
 
 const inputClass =
   'rounded-xl border border-stone-900/10 bg-stone-900/[0.03] px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-500 focus:border-brand-500 focus:outline-2 focus:outline-brand-500 focus:-outline-offset-1';
@@ -411,16 +412,18 @@ function FriendsSection() {
           const initial = displayName.charAt(0).toUpperCase();
 
           return (
-            <Link
+            <div
               key={friendId}
-              to={`/users/${friendId}`}
-              className="flex items-center gap-2.5 rounded-xl border border-stone-900/10 bg-stone-900/[0.025] px-3.5 py-3 transition-colors hover:bg-stone-900/[0.05]"
+              className="flex items-center justify-between gap-3 rounded-xl border border-stone-900/10 bg-stone-900/[0.025] px-3.5 py-3"
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500 font-display text-xs font-medium text-brand-ink">
-                {profile?.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" /> : initial}
-              </div>
-              <p className="truncate text-sm font-medium text-stone-900">{displayName}</p>
-            </Link>
+              <Link to={`/users/${friendId}`} className="flex min-w-0 items-center gap-2.5 hover:opacity-80">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500 font-display text-xs font-medium text-brand-ink">
+                  {profile?.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" /> : initial}
+                </div>
+                <p className="truncate text-sm font-medium text-stone-900">{displayName}</p>
+              </Link>
+              <FriendButton targetUserId={friendId} />
+            </div>
           );
         })}
       </div>
