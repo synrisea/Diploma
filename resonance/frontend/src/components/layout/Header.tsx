@@ -3,6 +3,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useHeatmap } from '../../heatmap/HeatmapContext';
 import { useDimensions } from '../../hooks/useDimensions';
 import { useFriendRequests } from '../../hooks/useFriendRequests';
+import { useIsAdmin } from '../../hooks/useAdmin';
 import { HeatmapControl } from '../map/HeatmapControl';
 import { RouteSearchBar } from '../route/RouteSearchBar';
 import { Logo } from './Logo';
@@ -41,6 +42,15 @@ function FriendsIcon() {
   );
 }
 
+function AdminIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 1.5l5.5 2.5v4c0 3-2.3 5.6-5.5 6.5C4.8 13.6 2.5 11 2.5 8V4z" />
+      <path d="M6 8l1.5 1.5L10.5 6.5" />
+    </svg>
+  );
+}
+
 function SettingsIcon() {
   return (
     <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
@@ -60,6 +70,7 @@ export function Header() {
   const { mode, setMode } = useHeatmap();
   const { data: dimensions = [] } = useDimensions();
   const { data: friendRequests = [] } = useFriendRequests();
+  const { isAdmin } = useIsAdmin();
   const incomingRequestCount = friendRequests.filter((r) => r.isIncoming).length;
 
   const onMapRoute = pathname === '/';
@@ -122,6 +133,16 @@ export function Header() {
             {incomingRequestCount > 0 && (
               <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-brand-500 shadow-[0_0_6px_1px_rgba(255,106,57,0.6)]" />
             )}
+          </Link>
+        )}
+
+        {isAuthenticated && isAdmin && (
+          <Link
+            to="/admin"
+            aria-label="Admin"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          >
+            <AdminIcon />
           </Link>
         )}
 
