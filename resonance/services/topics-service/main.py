@@ -55,21 +55,44 @@ def list_topics():
     ] 
 
 
+BADGE_MIN_LOCAL_COUNT = int(os.environ.get("BADGE_MIN_LOCAL_COUNT", "2"))
+BADGE_MIN_LOCAL_RATIO = float(os.environ.get("BADGE_MIN_LOCAL_RATIO", "0.15"))
+BADGE_MAX_PER_PLACE = int(os.environ.get("BADGE_MAX_PER_PLACE", "5"))
+
+
 @app.get("/api/topics/places/{place_id}")
 def topics_for_place(place_id: str):
+    """A topic is a badge for this place only if enough of this place's own comments
+    sit in it. The ratio is against the place's *clustered* comments, not all of them:
+    HDBSCAN leaves ~85% of comments as noise, so dividing by the full count made even
+    the most-reviewed places fall under the threshold and show nothing."""
     with get_connection() as conn:
-        rows = conn.execute("SELECT id, label, keywords, comment_count, place_ids, computed_at FROM topics").fetchall()
-    return [
-        {
+        rows = conn.execute(
+            "SELECT id, label, keywords, comment_count, place_counts, sentiment, computed_at FROM topics"
+        ).fetchall()
+
+    local_counts = {r["id"]: json.loads(r["place_counts"]).get(place_id, 0) for r in rows}
+    clustered_total = sum(local_counts.values())
+
+    relevant = []
+    for r in rows:
+        local_count = local_counts[r["id"]]
+        if local_count < BADGE_MIN_LOCAL_COUNT:
+            continue
+        if clustered_total and local_count / clustered_total < BADGE_MIN_LOCAL_RATIO:
+            continue
+        relevant.append({
             "id": r["id"],
             "label": r["label"],
             "keywords": json.loads(r["keywords"]),
             "commentCount": r["comment_count"],
+            "localCommentCount": local_count,
+            "sentiment": r["sentiment"],
             "computedAt": r["computed_at"],
-     }
-        for r in rows
-        if place_id in json.loads(r["place_ids"])
-    ]
+        })
+
+    relevant.sort(key=lambda t: t["localCommentCount"], reverse=True)
+    return relevant[:BADGE_MAX_PER_PLACE]
 
 @app.post("/api/topics/poll-now")
 async def poll_now():
