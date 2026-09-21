@@ -1,8 +1,8 @@
 # Place Tags (Topic Badges) — Diagnosis & Redesign
 
-Status: **research + design, not implemented.** Written 2026-09-19 after the observation that place tags "feel a bit awkward." They do, and this doc is the evidence for *why*, plus a change list ordered by impact-per-effort.
+Status: **§2 A-F implemented 2026-09-21.** Written 2026-09-19 after the observation that place tags "feel a bit awkward." They do, and this doc is the evidence for *why*, plus a change list ordered by impact-per-effort.
 
-Everything in §1 is measured against the live `topics.db` in `resonance-topics-api` as of 2026-09-19 (2,859 comments, 122 clusters), not estimated.
+Everything in §1 is measured against the live `topics.db` in `resonance-topics-api` as of 2026-09-19 (2,859 comments, 122 clusters), not estimated. Results and corrections from the build are in §6.
 
 ## 0. TL;DR
 
@@ -187,3 +187,79 @@ Worth recording the before-numbers *now*, since the current state is the baselin
 - **What's the right `min_cluster_size` as the corpus grows?** A fixed value will drift. Scaling it (e.g. `max(8, round(0.004 × n_comments))`) keeps behavior stable as comments accumulate, but wants validating against the §3 sample at two or three corpus sizes.
 - **Should a place with very few comments show badges at all?** A 4-comment place can satisfy §2A's ratio rule trivially (1 comment = 25%). An absolute floor (`local_count >= 2`) covers it, but a "too early to summarize" empty state may be more honest than two thin badges.
 - **Do badges need to be clickable?** They read as interactive (pill-shaped, colored) and aren't. Either make them filter the map (needs §2G's stable ids) or visually de-emphasize them toward plain labels. Current middle ground is the worst of both.
+
+## 6. Implementation notes (2026-09-21)
+
+§2 A-F shipped. G (stable ids) and H (taxonomy overlay) deliberately left undone.
+
+### Results
+
+Measured with `eval_tags.py`, which hits the real HTTP endpoint so before/after stay comparable. Corpus had grown to 3,825 comments / 362 places by build time.
+
+| Metric | Before | After |
+|---|---|---|
+| Clusters | 122 | **66** |
+| Duplicate labels | 13 | **0** |
+| Clusters ≤5 comments | 82 (67%) | **0** |
+| Badges backed by ≥2 of the place's own comments | ~0 by construction | **100%** |
+| Places with ≥1 badge | 229/362 (63%) | 128/362 (35%) |
+
+Shipped config: `leaf`, `min_cluster_size=5`, `min_samples=2`, merge at 0.82, badge threshold ≥2 local
+comments and ≥15% of the place's clustered comments, capped at 5 per place.
+
+The coverage drop from 63% → 35% of places is the intended trade, not a regression: a badge now means
+"≥2 of this place's comments, ≥15% of its categorizable ones," and thin places genuinely don't clear
+that. §5's open question ("should a thin place show badges at all?") is answered **no**.
+
+Label quality improved in two steps beyond the original plan, both added after reviewing the full
+cluster list by hand:
+
+- **Contentless-cluster filtering.** Clusters whose keywords are entirely sentiment words (`super,
+  great, awesome` → "Remarkable Service"; `good` → "Good Service") were being given specific-sounding
+  labels describing findings the data didn't support. These are now dropped before labelling. Killed
+  six junk clusters, including two that were the same theme under different names.
+- **Label-must-match-keywords.** A candidate is rejected unless it has ≥0.4 cosine to at least one of
+  the cluster's own keywords. This caught the worst mislabel — a cluster keyworded `rude, waiter,
+  speaking` had been labelled `Noisy Restaurant`, and became `Rude Service`. It also fixed a polarity
+  inversion: `plant, playlist, loud, tiring` was labelled `Quiet Playlists` (positive), and became
+  `Plants & Music`. A cosine floor against the *centroid* would not have caught either, since
+  embeddings place antonyms close together; matching against keywords is what made it work.
+  Fallback labels also skip sentiment words now, so a rejection can't reintroduce `Terrible`.
+
+### Granularity is a coverage/specificity trade, not a quality one
+
+`min_samples` was swept separately after the above. HDBSCAN leaves most of this corpus unclustered
+regardless of settings (~13-22%), which turned out to be the real cap on badge coverage — not the
+badge thresholds.
+
+| `min_samples` | Clusters | Places badged | Character of the labels |
+|---|---|---|---|
+| 5 (default) | 26 | 20% | Generic — `Great Coffee` spanning 43 places |
+| **2 (shipped)** | **66** | **35%** | Specific — `Live Music`, `Board Games`, `Second-Hand Books`, `Kebab Specialties`, `Rushed Orders`, `No Card Acceptance` |
+
+Finer granularity is better here because a badge's value is in distinguishing one place from another,
+and it separates negative themes that otherwise collapse together. The cost is a junk tail —
+`Voltage Chiller` returns at n=5, along with `Thank You` and `Quality Items` — plus surviving
+near-duplicates like `Rude Service` / `Rude Staff` that the 0.82 merge doesn't catch.
+
+That cost is accepted **because label review is being built** (`admin-panel-design.md`): 66 clusters
+is a one-off ~15 minute queue, and rejecting `Voltage Chiller` and merging `Rude Service`/`Rude Staff`
+is precisely what a human reviewer is for. Without that queue, 26 blander clusters would be the safer
+default — `MIN_SAMPLES` is an env var, so this is one line in `docker-compose.yml` to reverse.
+
+### Two recommendations in this doc were wrong
+
+Recorded because the reasoning, not just the outcome, was off:
+
+1. **§2C blamed `cluster_selection_method="leaf"` and recommended `eom`. Wrong.** Swept both across `min_cluster_size` 3-15 (`tune_clustering.py`, kept for re-tuning). `min_cluster_size` is the real lever — at 3 it gave 130 clusters, at 5 it gave 44, and the method barely mattered. `eom` was actively worse at larger floors: it produced catch-all blobs (one cluster of 332 comments keyworded "coffee, baku, food, great, service"). Shipped config is **`leaf` with `min_cluster_size=5`** — the method change was reverted, only the floor moved. First attempt deployed `eom` + a corpus-scaled floor of 15 and collapsed the whole corpus into **4** clusters.
+
+2. **§2A's ratio used the wrong denominator.** "`local_count / place_total_comments >= 0.15`" looks right but HDBSCAN leaves ~85% of comments as noise, so dividing by *all* of a place's comments meant even the most-reviewed place in the dataset (27 comments) cleared no threshold and showed **zero** badges. Corrected to divide by the place's **clustered** comments. Same thresholds, and the top-commented places went from nothing to sensible single badges.
+
+Also worth noting: the corpus-scaled `min_cluster_size` from §5's open question was tried and removed. A fixed value with an env override plus `tune_clustering.py` for re-tuning is more honest than a scaling ratio calibrated at one corpus size.
+
+### Not done, and still worth doing
+
+- **The merge threshold (0.82) is loose.** `Rude Service` and `Rude Staff` survive as separate clusters. Tightening it risks over-merging genuinely distinct themes; manual merge in the admin panel is the cheaper answer than another threshold guess.
+- **A junk tail persists** at n=5 (`Voltage Chiller`, `Thank You`, `Quality Items`). The contentless filter catches pure-sentiment clusters but not ones with real-but-meaningless keywords. Human rejection is the intended remedy rather than a longer word list.
+- **GBNF-constrained JSON** (mentioned in §2E) was skipped. Both LLM call sites still substring-hunt for `{`…`}` inside a try/except. Low risk to add, just not done here.
+- **§2G (stable topic ids)** — unchanged, still a `DELETE FROM topics` rebuild per run. Now a hard blocker rather than a nice-to-have: it is phase 0 of `admin-panel-design.md`, because approvals keyed to autoincrement ids would not survive a retrain.
