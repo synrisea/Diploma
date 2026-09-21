@@ -42,6 +42,15 @@ function FriendsIcon() {
   );
 }
 
+function PlansIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="3.5" width="12" height="10.5" rx="1.5" />
+      <path d="M2 6.5h12M5.5 2v3M10.5 2v3" />
+    </svg>
+  );
+}
+
 function AdminIcon() {
   return (
     <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -120,6 +129,16 @@ export function Header() {
             className="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
             <InboxIcon />
+          </Link>
+        )}
+
+        {isAuthenticated && (
+          <Link
+            to="/plans"
+            aria-label="My plans"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          >
+            <PlansIcon />
           </Link>
         )}
 

@@ -25,16 +25,21 @@ export async function getIntentsForPlace(accessToken: string, placeId: string): 
   return (await response.json()) as VisitIntent[];
 }
 
+export async function getMyIntents(accessToken: string): Promise<VisitIntent[]> {
+  const response = await authedFetch('/api/connections/intents/mine', accessToken);
+  return (await response.json()) as VisitIntent[];
+}
+
 export async function createIntent(
   accessToken: string,
   placeId: string,
-  timeBucket: string,
+  visitDate: string,
   intentTag?: string,
 ): Promise<{ id: string }> {
   const response = await authedFetch('/api/connections/intents', accessToken, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ placeId, timeBucket, intentTag: intentTag || null }),
+    body: JSON.stringify({ placeId, visitDate, intentTag: intentTag || null }),
   });
   return (await response.json()) as { id: string };
 }
@@ -108,6 +113,10 @@ export async function acceptFriendRequest(accessToken: string, requestId: string
 
 export async function declineFriendRequest(accessToken: string, requestId: string): Promise<void> {
   await authedFetch(`/api/connections/friend-requests/${requestId}/decline`, accessToken, { method: 'POST' });
+}
+
+export async function removeFriend(accessToken: string, friendUserId: string): Promise<void> {
+  await authedFetch(`/api/connections/friends/${friendUserId}`, accessToken, { method: 'DELETE' });
 }
 
 export async function getFriends(accessToken: string): Promise<string[]> {

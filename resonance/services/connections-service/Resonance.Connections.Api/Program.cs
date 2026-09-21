@@ -17,9 +17,11 @@ using Resonance.Connections.Application.FriendRequests.DeclineFriendRequest;
 using Resonance.Connections.Application.FriendRequests.GetFriendRequests;
 using Resonance.Connections.Application.FriendRequests.SendFriendRequest;
 using Resonance.Connections.Application.Friends.GetFriends;
+using Resonance.Connections.Application.Friends.RemoveFriend;
 using Resonance.Connections.Application.Intents.CreateIntent;
 using Resonance.Connections.Application.Intents.DeleteIntent;
 using Resonance.Connections.Application.Intents.GetIntents;
+using Resonance.Connections.Application.Intents.GetMyIntents;
 using Resonance.Connections.Infrastructure;
 using Scalar.AspNetCore;
 
@@ -87,7 +89,7 @@ app.MapPost("/api/connections/intents", async (
 
     try
     {
-        var id = await mediator.Send(new CreateIntentCommand(userId, request.PlaceId, request.TimeBucket, request.IntentTag), cancellationToken);
+        var id = await mediator.Send(new CreateIntentCommand(userId, request.PlaceId, request.VisitDate, request.IntentTag), cancellationToken);
         return Results.Ok(new { id });
     }
     catch (ArgumentException ex)
@@ -102,6 +104,15 @@ app.MapGet("/api/connections/intents", async (
     if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
 
     var result = await mediator.Send(new GetIntentsForPlaceQuery(placeId, userId), cancellationToken);
+    return Results.Ok(result);
+}).RequireAuthorization();
+
+app.MapGet("/api/connections/intents/mine", async (
+    ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    var result = await mediator.Send(new GetMyIntentsQuery(userId), cancellationToken);
     return Results.Ok(result);
 }).RequireAuthorization();
 
@@ -246,6 +257,15 @@ app.MapPost("/api/connections/friend-requests/{requestId:guid}/decline", async (
         DeclineFriendRequestStatus.Forbidden => Results.Forbid(),
         _ => Results.Problem(),
     };
+}).RequireAuthorization();
+
+app.MapDelete("/api/connections/friends/{friendUserId:guid}", async (
+    Guid friendUserId, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    await mediator.Send(new RemoveFriendCommand(userId, friendUserId), cancellationToken);
+    return Results.NoContent();
 }).RequireAuthorization();
 
 app.MapGet("/api/connections/friends", async (

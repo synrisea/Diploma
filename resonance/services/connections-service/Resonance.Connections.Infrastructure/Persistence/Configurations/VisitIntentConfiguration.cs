@@ -10,10 +10,10 @@ public class VisitIntentConfiguration : IEntityTypeConfiguration<VisitIntent>
     {
         builder.HasKey(i => i.Id);
 
-        builder.Property(i => i.TimeBucket).IsRequired().HasMaxLength(20);
         builder.Property(i => i.IntentTag).HasMaxLength(60);
 
         builder.HasIndex(i => i.PlaceId);
+        builder.HasIndex(i => i.VisitDate);
         builder.HasIndex(i => new { i.UserId, i.PlaceId }).IsUnique();
     }
 }

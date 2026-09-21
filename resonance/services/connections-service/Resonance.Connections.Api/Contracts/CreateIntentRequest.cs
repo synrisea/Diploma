@@ -1,3 +1,3 @@
 namespace Resonance.Connections.Api.Contracts;
 
-public record CreateIntentRequest(Guid PlaceId, string TimeBucket, string? IntentTag);
+public record CreateIntentRequest(Guid PlaceId, DateOnly VisitDate, string? IntentTag);

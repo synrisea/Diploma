@@ -24,8 +24,8 @@ public class GetIntentsForPlaceHandler : IRequestHandler<GetIntentsForPlaceQuery
 
         return await _context.VisitIntents
             .Where(i => i.PlaceId == request.PlaceId && i.ExpiresAt > now && !blockedUserIds.Contains(i.UserId))
-            .OrderBy(i => i.CreatedAt)
-            .Select(i => new VisitIntentDto(i.Id, i.UserId, i.PlaceId, i.TimeBucket, i.IntentTag, i.CreatedAt, i.ExpiresAt))
+            .OrderBy(i => i.VisitDate).ThenBy(i => i.CreatedAt)
+            .Select(i => new VisitIntentDto(i.Id, i.UserId, i.PlaceId, i.VisitDate, i.IntentTag, i.CreatedAt, i.ExpiresAt))
             .ToListAsync(cancellationToken);
     }
 }

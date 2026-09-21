@@ -2,7 +2,7 @@ export interface VisitIntent {
   id: string;
   userId: string;
   placeId: string;
-  timeBucket: string;
+  visitDate: string;
   intentTag: string | null;
   createdAt: string;
   expiresAt: string;

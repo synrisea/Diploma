@@ -7,12 +7,13 @@ export function useSetVisitIntent(placeId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { timeBucket: string; intentTag?: string }) => {
+    mutationFn: async (input: { visitDate: string; intentTag?: string }) => {
       const token = await getValidAccessToken();
-      return createIntent(token, placeId, input.timeBucket, input.intentTag);
+      return createIntent(token, placeId, input.visitDate, input.intentTag);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['visit-intents', placeId] });
+      queryClient.invalidateQueries({ queryKey: ['my-visit-intents'] });
     },
   });
 }

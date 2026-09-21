@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { deleteIntent } from '../api/connections';
 import { useAuth } from '../auth/AuthContext';
 
-export function useDeleteVisitIntent(placeId: string) {
+export function useDeleteVisitIntent(placeId?: string) {
   const { getValidAccessToken } = useAuth();
   const queryClient = useQueryClient();
 
@@ -13,6 +13,7 @@ export function useDeleteVisitIntent(placeId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['visit-intents', placeId] });
+      queryClient.invalidateQueries({ queryKey: ['my-visit-intents'] });
     },
   });
 }

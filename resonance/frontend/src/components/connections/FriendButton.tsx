@@ -3,6 +3,8 @@ import { useFriends } from '../../hooks/useFriends';
 import { useFriendRequests } from '../../hooks/useFriendRequests';
 import { useSendFriendRequest } from '../../hooks/useSendFriendRequest';
 import { useRespondToFriendRequest } from '../../hooks/useRespondToFriendRequest';
+import { useRemoveFriend } from '../../hooks/useRemoveFriend';
+import { useState } from 'react';
 
 const pillClass =
   'rounded-full border border-stone-900/10 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] text-stone-500';
@@ -17,11 +19,23 @@ export function FriendButton({ targetUserId }: { targetUserId: string }) {
   const { data: requests = [] } = useFriendRequests();
   const sendRequest = useSendFriendRequest();
   const respond = useRespondToFriendRequest();
+  const removeFriend = useRemoveFriend();
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   if (!myUserId || targetUserId === myUserId) return null;
 
   if (friends.includes(targetUserId)) {
-    return <span className={pillClass}>Friends</span>;
+    return (
+      <button
+        type="button"
+        onClick={() => (confirmRemove ? removeFriend.mutate(targetUserId) : setConfirmRemove(true))}
+        onBlur={() => setConfirmRemove(false)}
+        disabled={removeFriend.isPending}
+        className={confirmRemove ? dangerPillClass : pillClass}
+      >
+        {confirmRemove ? 'Remove?' : 'Friends'}
+      </button>
+    );
   }
 
   const incoming = requests.find((r) => r.otherUserId === targetUserId && r.isIncoming);
