@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from admin_routes import router as admin_router
 from db import init_db, get_connection
 from itinerary import plan_itinerary
 from models import PlanItineraryRequest
@@ -35,6 +36,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(admin_router)
 
 @app.get("/api/topics")
 def list_topics():
@@ -68,7 +71,8 @@ def topics_for_place(place_id: str):
     the most-reviewed places fall under the threshold and show nothing."""
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT id, label, keywords, comment_count, place_counts, sentiment, computed_at FROM topics"
+            """SELECT id, label, approved_label, keywords, comment_count, place_counts, sentiment, computed_at
+               FROM topics WHERE status = 'approved'"""
         ).fetchall()
 
     local_counts = {r["id"]: json.loads(r["place_counts"]).get(place_id, 0) for r in rows}
@@ -83,7 +87,7 @@ def topics_for_place(place_id: str):
             continue
         relevant.append({
             "id": r["id"],
-            "label": r["label"],
+            "label": r["approved_label"] or r["label"],
             "keywords": json.loads(r["keywords"]),
             "commentCount": r["comment_count"],
             "localCommentCount": local_count,
