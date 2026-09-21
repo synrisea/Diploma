@@ -4,6 +4,8 @@ class CandidatePlace(BaseModel):
     id: str
     name: str
     categoryName: str | None = None
+    openingHours: str | None = None
+    wheelchair: str | None = None
 
 class PlanItineraryRequest(BaseModel):
     wish: str

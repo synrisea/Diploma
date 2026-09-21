@@ -72,6 +72,7 @@ var existingOsmIds = await db.Places
 
 var imported = 0;
 var skipped = 0;
+var updated = 0;
 
 foreach (var element in overpassResult.Elements)
 {
@@ -82,7 +83,12 @@ foreach (var element in overpassResult.Elements)
 
     if (existingOsmIds.Contains(element.Id))
     {
-        skipped++;
+        var existing = await db.Places.FirstAsync(p => p.OsmId == element.Id);
+        existing.UpdateOsmDetails(
+            BuildAddress(element.Tags),
+            element.Tags.GetValueOrDefault("opening_hours"),
+            element.Tags.GetValueOrDefault("wheelchair"));
+        updated++;
         continue;
     }
 
@@ -93,6 +99,7 @@ foreach (var element in overpassResult.Elements)
     var name = element.Tags.GetValueOrDefault("name", categoryName);
     var address = BuildAddress(element.Tags);
     var openingHours = element.Tags.GetValueOrDefault("opening_hours");
+    var wheelchair = element.Tags.GetValueOrDefault("wheelchair");
     var location = geometryFactory.CreatePoint(new Coordinate(lon.Value, lat.Value));
 
     var place = new Place(
@@ -102,14 +109,15 @@ foreach (var element in overpassResult.Elements)
         location: location,
         address: address,
         openingHours: openingHours,
-        osmId: element.Id);
+        osmId: element.Id,
+        wheelchair: wheelchair);
 
     db.Places.Add(place);
     imported++;
 }
 
 await db.SaveChangesAsync();
-Console.WriteLine($"Imported {imported} new places, skipped {skipped} already in the database.");
+Console.WriteLine($"Imported {imported} new places, enriched {updated} existing ones.");
 
 static string? BuildAddress(Dictionary<string, string> tags)
 {

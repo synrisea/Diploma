@@ -10,6 +10,7 @@ public class QuickFeedback
     public Guid UserId { get; private set; }
     public string Comment { get; private set; } = null!;
     public DateTime CreatedAt{ get; private set; }
+    public bool IsHidden { get; private set; }
 
     private QuickFeedback() {}
 
@@ -28,4 +29,8 @@ public class QuickFeedback
         Comment = comment.Trim();
         CreatedAt = DateTime.UtcNow;
     }
+
+    public void Hide() => IsHidden = true;
+
+    public void Restore() => IsHidden = false;
 }

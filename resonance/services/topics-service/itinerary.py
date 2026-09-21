@@ -65,6 +65,14 @@ def _place_cards(place_ids: list[str], catalog: dict[str, dict], topics: dict[st
     for index, place_id in enumerate(place_ids, 1):
         place = catalog[place_id]
         line = f'{index}. {place["name"]} ({place.get("categoryName") or "place"})'
+        access = place.get("wheelchair")
+        if access:
+            line += f"
+   wheelchair: {access}"
+        hours = place.get("openingHours")
+        if hours:
+            line += f"
+   hours: {hours[:60]}"
         themes = topics.get(place_id, [])
         if themes:
             rendered = ", ".join(

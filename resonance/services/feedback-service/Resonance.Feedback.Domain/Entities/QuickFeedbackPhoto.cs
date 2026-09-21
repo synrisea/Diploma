@@ -7,6 +7,7 @@ public class QuickFeedbackPhoto
     public string Url { get; private set; } = null!;
     public int SortOrder { get; private set; }
     public DateTime CreatedAt { get; private set; }
+    public bool IsHidden { get; private set; }
 
     private QuickFeedbackPhoto() {}
 
@@ -23,4 +24,8 @@ public class QuickFeedbackPhoto
         SortOrder = sortOrder;
         CreatedAt = DateTime.UtcNow;
     }
+
+    public void Hide() => IsHidden = true;
+
+    public void Restore() => IsHidden = false;
 }

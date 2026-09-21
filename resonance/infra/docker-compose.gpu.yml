@@ -1,0 +1,15 @@
+services:
+  topics-api:
+    build:
+      args:
+        BASE_IMAGE: nvidia/cuda:12.4.1-devel-ubuntu22.04
+        LLAMA_CMAKE_ARGS: -DGGML_CUDA=on
+    environment:
+      LLM_GPU_LAYERS: "-1"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

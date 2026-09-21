@@ -6,6 +6,7 @@ public record PlaceDto(
     string? CategoryName,
     double Latitude,
     double Longitude,
-    string? Address
-);
+    string? Address,
+    string? OpeningHours,
+    string? Wheelchair);
 

@@ -62,6 +62,7 @@ services:
     ports:
       - "5066:8080"
     environment:
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS}
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: Host=postgres;Port=5432;Database=resonance_feedback;Username=resonance;Password=dev123
     depends_on:
@@ -86,6 +87,9 @@ services:
   topics-api:
     build:
       context: ../services/topics-service
+      args:
+        BASE_IMAGE: ubuntu:22.04
+        LLAMA_CMAKE_ARGS: -DGGML_CUDA=off
     container_name: resonance-topics-api
     restart: unless-stopped
     ports:
@@ -98,17 +102,11 @@ services:
       JWT_ISSUER: Resonance.Identity
       JWT_AUDIENCE: Resonance
       ADMIN_USER_IDS: ${ADMIN_USER_IDS}
+      LLM_GPU_LAYERS: "0"
     volumes:
       - resonance_topics_data:/data
     depends_on:
       - feedback-api
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   frontend:
     build:

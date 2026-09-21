@@ -15,7 +15,7 @@ public class GetCommentsAfterHandler : IRequestHandler<GetCommentsAfterQuery, Li
 
     public async Task<List<CommentDto>> Handle(GetCommentsAfterQuery request, CancellationToken cancellationToken)
     {
-        var query = _context.QuickFeedbacks.AsQueryable();
+        var query = _context.QuickFeedbacks.Where(f => !f.IsHidden);
 
         if (request.After is not null)
             query = query.Where(f => f.CreatedAt > request.After);

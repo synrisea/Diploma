@@ -53,3 +53,13 @@ export interface AuditEntry {
   after: Record<string, unknown> | null;
   createdAt: string;
 }
+
+export interface AdminComment {
+  id: string;
+  placeId: string;
+  userId: string;
+  comment: string;
+  createdAt: string;
+  isHidden: boolean;
+  photoUrls: string[];
+}

@@ -13,6 +13,8 @@ import {
   renameDimension,
   reopenTopic,
   restoreDimension,
+  searchComments,
+  setCommentHidden,
   unmergeTopic,
 } from '../api/admin';
 import { useAuth } from '../auth/AuthContext';
@@ -141,5 +143,27 @@ export function useForceRetrain() {
       queryClient.invalidateQueries({ queryKey: ['admin-topics'] });
       queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
     },
+  });
+}
+
+export function useAdminComments(text: string, includeHidden: boolean) {
+  const { isAuthenticated, getValidAccessToken } = useAuth();
+
+  return useQuery({
+    queryKey: ['admin-comments', text, includeHidden],
+    queryFn: async () => searchComments(await getValidAccessToken(), text, includeHidden),
+    enabled: isAuthenticated,
+    retry: false,
+  });
+}
+
+export function useSetCommentHidden() {
+  const { getValidAccessToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (args: { commentId: string; hidden: boolean }) =>
+      setCommentHidden(await getValidAccessToken(), args.commentId, args.hidden),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-comments'] }),
   });
 }

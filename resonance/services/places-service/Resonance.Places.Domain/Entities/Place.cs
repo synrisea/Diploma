@@ -11,13 +11,14 @@ public class Place
     public Category? Category { get; private set; }     
     public Point Location { get; private set; } = null!;  
     public string? Address { get; private set; }
-    public string? OpeningHours { get; private set; }      
+    public string? OpeningHours { get; private set; }
+    public string? Wheelchair { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
     private Place() { }
 
     public Place(Guid id, string name, Guid categoryId, Point location,
-        string? address = null, string? openingHours = null, long? osmId = null)
+        string? address = null, string? openingHours = null, long? osmId = null, string? wheelchair = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Place name is required.", nameof(name));
@@ -28,7 +29,15 @@ public class Place
         Location = location ?? throw new ArgumentNullException(nameof(location));
         Address = address;
         OpeningHours = openingHours;
+        Wheelchair = wheelchair;
         OsmId = osmId;
         CreatedAt = DateTime.UtcNow;
+    }
+
+    public void UpdateOsmDetails(string? address, string? openingHours, string? wheelchair)
+    {
+        Address = address ?? Address;
+        OpeningHours = openingHours ?? OpeningHours;
+        Wheelchair = wheelchair ?? Wheelchair;
     }
 }

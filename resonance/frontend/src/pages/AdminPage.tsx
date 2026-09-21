@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import {
+  useAdminComments,
   useAdminDimensions,
   useAdminTopics,
   useAuditLog,
@@ -13,6 +14,7 @@ import {
   useRenameDimension,
   useReopenTopic,
   useRestoreDimension,
+  useSetCommentHidden,
   useUnmergeTopic,
 } from '../hooks/useAdmin';
 import { ConfirmButton } from '../components/admin/ConfirmButton';
@@ -26,7 +28,7 @@ const cardClass = 'rounded-xl border border-stone-900/10 bg-stone-900/[0.025] px
 const mutedButtonClass =
   'rounded-full border border-stone-900/10 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] text-stone-500 transition-colors hover:text-stone-900 disabled:opacity-50';
 
-const TABS = ['review', 'topics', 'dimensions', 'pipeline', 'audit'] as const;
+const TABS = ['review', 'topics', 'dimensions', 'content', 'pipeline', 'audit'] as const;
 type Tab = (typeof TABS)[number];
 
 function Stat({ value, label }: { value: number | string; label: string }) {
@@ -256,6 +258,75 @@ function DimensionsTab() {
   );
 }
 
+function ContentTab() {
+  const [text, setText] = useState('');
+  const [includeHidden, setIncludeHidden] = useState(true);
+  const { data: comments = [], isLoading } = useAdminComments(text, includeHidden);
+  const setHidden = useSetCommentHidden();
+
+  return (
+    <div className="flex flex-col gap-3">
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Search comments…"
+        className="rounded-xl border border-stone-900/10 bg-stone-900/[0.03] px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-500 focus:border-brand-500 focus:outline-2 focus:outline-brand-500 focus:-outline-offset-1"
+      />
+      <label className="flex items-center gap-2 text-sm text-stone-500">
+        <input type="checkbox" checked={includeHidden} onChange={(e) => setIncludeHidden(e.target.checked)} />
+        Show hidden ones too
+      </label>
+
+      {isLoading ? (
+        <p className="text-sm text-stone-500">Loading…</p>
+      ) : comments.length === 0 ? (
+        <p className="text-sm text-stone-500">No comments match that.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {comments.map((comment) => (
+            <div key={comment.id} className={cardClass}>
+              <div className="flex items-start justify-between gap-3">
+                <p className={`text-sm ${comment.isHidden ? 'text-stone-500 line-through' : 'text-stone-700'}`}>
+                  {comment.comment.length > 240 ? `${comment.comment.slice(0, 240)}…` : comment.comment}
+                </p>
+                {comment.isHidden ? (
+                  <button
+                    type="button"
+                    onClick={() => setHidden.mutate({ commentId: comment.id, hidden: false })}
+                    disabled={setHidden.isPending}
+                    className={mutedButtonClass}
+                  >
+                    Show
+                  </button>
+                ) : (
+                  <ConfirmButton
+                    label="Hide"
+                    confirmLabel="Click again to hide"
+                    disabled={setHidden.isPending}
+                    className={mutedButtonClass}
+                    onConfirm={() => setHidden.mutate({ commentId: comment.id, hidden: true })}
+                  />
+                )}
+              </div>
+              {comment.photoUrls.length > 0 && (
+                <div className="mt-2 flex gap-1.5 overflow-x-auto">
+                  {comment.photoUrls.map((url) => (
+                    <img key={url} src={url} alt="" className="h-14 w-14 shrink-0 rounded-lg border border-stone-900/10 object-cover" />
+                  ))}
+                </div>
+              )}
+              <p className="mt-1.5 font-mono text-[11px] text-stone-500">
+                {comment.isHidden ? 'hidden · ' : ''}{formatRelativeTime(comment.createdAt)}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PipelineTab() {
   const { data: status, isLoading } = usePipelineStatus();
   const retrain = useForceRetrain();
@@ -384,6 +455,7 @@ export function AdminPage() {
         {tab === 'review' && <TopicReview />}
         {tab === 'topics' && <TopicsTab />}
         {tab === 'dimensions' && <DimensionsTab />}
+        {tab === 'content' && <ContentTab />}
         {tab === 'pipeline' && <PipelineTab />}
         {tab === 'audit' && <AuditTab />}
       </div>

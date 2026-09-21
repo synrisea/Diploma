@@ -28,8 +28,18 @@ def _topic_labels_by_place() -> dict[str, list[str]]:
     }
 
 
+ACCESSIBILITY_TEXT = {
+    "yes": "wheelchair accessible",
+    "limited": "partly wheelchair accessible",
+    "no": "not wheelchair accessible",
+}
+
+
 def _profile_text(candidate: dict, labels: list[str]) -> str:
     parts = [candidate["name"], candidate.get("categoryName") or "place"]
+    access = ACCESSIBILITY_TEXT.get((candidate.get("wheelchair") or "").lower())
+    if access:
+        parts.append(access)
     parts.extend(labels)
     return ". ".join(parts)
 

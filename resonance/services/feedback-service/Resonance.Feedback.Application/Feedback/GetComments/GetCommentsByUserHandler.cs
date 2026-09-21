@@ -16,6 +16,7 @@ public class GetCommentsByUserHandler : IRequestHandler<GetCommentsByUserQuery, 
     public async Task<List<CommentDto>> Handle(GetCommentsByUserQuery request, CancellationToken cancellationToken)
     {
         var feedbacks = await _context.QuickFeedbacks
+            .Where(f => !f.IsHidden)
             .Where(f => f.UserId == request.UserId)
             .OrderByDescending(f => f.CreatedAt)
             .Take(request.Limit)
@@ -26,7 +27,7 @@ public class GetCommentsByUserHandler : IRequestHandler<GetCommentsByUserQuery, 
             .Where(p => feedbackIds.Contains(p.QuickFeedbackId))
             .OrderBy(p => p.SortOrder)
             .GroupBy(p => p.QuickFeedbackId)
-            .ToDictionaryAsync(g => g.Key, g => (IReadOnlyList<string>)g.Select(p => p.Url).ToList(), cancellationToken);
+            .ToDictionaryAsync(g => g.Key, g => (IReadOnlyList<string>)g.Where(p => !p.IsHidden).Select(p => p.Url).ToList(), cancellationToken);
 
         return feedbacks
             .Select(f => new CommentDto(

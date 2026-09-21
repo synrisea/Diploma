@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using Resonance.Feedback.Api.Contracts;
 using Resonance.Feedback.Application;
 using Resonance.Feedback.Application.Feedback.GetComments;
+using Resonance.Feedback.Application.Admin;
 using Resonance.Feedback.Application.Feedback.Submit;
 using Resonance.Feedback.Infrastructure;
 using Scalar.AspNetCore;
@@ -94,5 +95,44 @@ app.MapGet("api/feedback/comments", async (
     var result = await mediator.Send(new GetCommentsAfterQuery(after, limit ?? 500), cancellationToken);   
     return Results.Ok(result);
 });
+
+static bool IsAdmin(ClaimsPrincipal user, IConfiguration config)
+{
+    var claim = user.FindFirstValue(JwtRegisteredClaimNames.Sub);
+    if (string.IsNullOrWhiteSpace(claim)) return false;
+
+    var allowed = (config["ADMIN_USER_IDS"] ?? string.Empty)
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    return allowed.Contains(claim);
+}
+
+app.MapGet("/api/admin/comments", async (
+    string? text, Guid? placeId, Guid? userId, bool includeHidden,
+    ClaimsPrincipal user, IConfiguration config, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!IsAdmin(user, config)) return Results.Forbid();
+
+    var result = await mediator.Send(new SearchCommentsQuery(text, placeId, userId, includeHidden), cancellationToken);
+    return Results.Ok(result);
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/comments/{commentId:guid}/hide", async (
+    Guid commentId, ClaimsPrincipal user, IConfiguration config, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!IsAdmin(user, config)) return Results.Forbid();
+
+    var found = await mediator.Send(new SetCommentHiddenCommand(commentId, true), cancellationToken);
+    return found ? Results.NoContent() : Results.NotFound();
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/comments/{commentId:guid}/restore", async (
+    Guid commentId, ClaimsPrincipal user, IConfiguration config, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!IsAdmin(user, config)) return Results.Forbid();
+
+    var found = await mediator.Send(new SetCommentHiddenCommand(commentId, false), cancellationToken);
+    return found ? Results.NoContent() : Results.NotFound();
+}).RequireAuthorization();
 
 app.Run();

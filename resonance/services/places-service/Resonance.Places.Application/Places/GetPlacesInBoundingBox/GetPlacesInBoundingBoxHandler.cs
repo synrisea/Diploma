@@ -29,7 +29,9 @@ public class GetPlacesInBoundingBoxHandler : IRequestHandler<GetPlacesInBounding
                 p.Category != null ? p.Category.Name : null,
                 p.Location.Y, // latitude
                 p.Location.X, // longitude
-                p.Address
+                p.Address,
+                p.OpeningHours,
+                p.Wheelchair
             )).ToListAsync(cancellationToken);
     }
 }

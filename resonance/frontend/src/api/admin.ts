@@ -1,4 +1,5 @@
 import type {
+  AdminComment,
   AdminDimension,
   AdminOverview,
   AdminTopic,
@@ -99,4 +100,29 @@ export async function forceRetrain(accessToken: string): Promise<void> {
 
 export async function getAuditLog(accessToken: string): Promise<AuditEntry[]> {
   return (await (await adminFetch('/audit', accessToken)).json()) as AuditEntry[];
+}
+
+const FEEDBACK_API_BASE_URL = import.meta.env.VITE_FEEDBACK_API_BASE_URL ?? 'http://localhost:5066';
+
+async function feedbackAdminFetch(path: string, accessToken: string, init?: RequestInit): Promise<Response> {
+  const response = await fetch(`${FEEDBACK_API_BASE_URL}/api/admin${path}`, {
+    ...init,
+    headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw new Error('That did not work.');
+  return response;
+}
+
+export async function searchComments(
+  accessToken: string,
+  text: string,
+  includeHidden: boolean,
+): Promise<AdminComment[]> {
+  const params = new URLSearchParams({ includeHidden: String(includeHidden) });
+  if (text.trim()) params.set('text', text.trim());
+  return (await (await feedbackAdminFetch(`/comments?${params}`, accessToken)).json()) as AdminComment[];
+}
+
+export async function setCommentHidden(accessToken: string, commentId: string, hidden: boolean): Promise<void> {
+  await feedbackAdminFetch(`/comments/${commentId}/${hidden ? 'hide' : 'restore'}`, accessToken, { method: 'POST' });
 }

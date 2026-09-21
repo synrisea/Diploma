@@ -26,7 +26,13 @@ export function RouteProvider({ children }: { children: ReactNode }) {
     planItinerary.mutate(
       {
         wish,
-        candidatePlaces: places.map((p) => ({ id: p.id, name: p.name, categoryName: p.categoryName })),
+        candidatePlaces: places.map((p) => ({
+          id: p.id,
+          name: p.name,
+          categoryName: p.categoryName,
+          openingHours: p.openingHours,
+          wheelchair: p.wheelchair,
+        })),
       },
       {
         onSuccess: (response) => {
