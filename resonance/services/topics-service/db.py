@@ -45,6 +45,34 @@ def init_db() -> None:
             conn.execute("ALTER TABLE topics ADD COLUMN place_counts TEXT NOT NULL DEFAULT '{}'")
         if "sentiment" not in topic_columns:
             conn.execute("ALTER TABLE topics ADD COLUMN sentiment TEXT NOT NULL DEFAULT 'mixed'")
+        if "centroid" not in topic_columns:
+            conn.execute("ALTER TABLE topics ADD COLUMN centroid TEXT NOT NULL DEFAULT '[]'")
+        if "status" not in topic_columns:
+            conn.execute("ALTER TABLE topics ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'")
+        if "approved_label" not in topic_columns:
+            conn.execute("ALTER TABLE topics ADD COLUMN approved_label TEXT")
+        if "candidates" not in topic_columns:
+            conn.execute("ALTER TABLE topics ADD COLUMN candidates TEXT NOT NULL DEFAULT '[]'")
+        if "samples" not in topic_columns:
+            conn.execute("ALTER TABLE topics ADD COLUMN samples TEXT NOT NULL DEFAULT '[]'")
+        if "reviewed_at" not in topic_columns:
+            conn.execute("ALTER TABLE topics ADD COLUMN reviewed_at TEXT")
+        if "reviewed_by" not in topic_columns:
+            conn.execute("ALTER TABLE topics ADD COLUMN reviewed_by TEXT")
+        if "last_seen_at" not in topic_columns:
+            conn.execute("ALTER TABLE topics ADD COLUMN last_seen_at TEXT")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS admin_actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                actor_user_id TEXT NOT NULL,
+                action TEXT NOT NULL,
+                target_type TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                before TEXT,
+                after TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS dimensions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

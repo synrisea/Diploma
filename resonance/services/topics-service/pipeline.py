@@ -26,6 +26,8 @@ DIMENSION_PROMOTION_MIN_COUNT = int(os.environ.get("DIMENSION_PROMOTION_MIN_COUN
 TOPIC_MERGE_THRESHOLD = float(os.environ.get("TOPIC_MERGE_THRESHOLD", "0.82"))
 LABEL_DUPLICATE_THRESHOLD = float(os.environ.get("LABEL_DUPLICATE_THRESHOLD", "0.9"))
 LABEL_KEYWORD_THRESHOLD = float(os.environ.get("LABEL_KEYWORD_THRESHOLD", "0.4"))
+TOPIC_IDENTITY_THRESHOLD = float(os.environ.get("TOPIC_IDENTITY_THRESHOLD", "0.82"))
+TOPIC_STABLE_THRESHOLD = float(os.environ.get("TOPIC_STABLE_THRESHOLD", "0.92"))
 
 _poll_lock = asyncio.Lock()
 
@@ -133,6 +135,24 @@ def merge_similar_clusters(clusters: list[dict]) -> list[dict]:
     return merged
 
 
+def match_prior_topic(centroid: np.ndarray, prior: list[dict], claimed: set[int]) -> tuple[dict | None, float]:
+    """Find the topic row from the previous run that this cluster continues, so ids
+    and review decisions survive a retrain. Without this the table is rebuilt from
+    scratch every ~100 comments and any approval is lost."""
+    best, best_similarity = None, -1.0
+
+    for candidate in prior:
+        if candidate["id"] in claimed or candidate["centroid"] is None:
+            continue
+        similarity = float(np.dot(centroid, candidate["centroid"]))
+        if similarity > best_similarity:
+            best, best_similarity = candidate, similarity
+
+    if best is None or best_similarity < TOPIC_IDENTITY_THRESHOLD:
+        return None, best_similarity
+    return best, best_similarity
+
+
 def pick_label(
     candidates: list[str],
     centroid: np.ndarray,
@@ -202,7 +222,18 @@ async def recluster(total_count: int) -> None:
             for r in conn.execute("SELECT id, centroid, times_matched FROM dimensions").fetchall()
         ]
 
-        conn.execute("DELETE FROM topics")
+        prior = [
+            {
+                "id": r["id"],
+                "centroid": np.array(json.loads(r["centroid"])) if r["centroid"] and r["centroid"] != "[]" else None,
+                "status": r["status"],
+                "approved_label": r["approved_label"],
+            }
+            for r in conn.execute("SELECT id, centroid, status, approved_label FROM topics").fetchall()
+        ]
+        claimed: set[int] = set()
+
+        conn.execute("UPDATE topics SET comment_count = 0, place_counts = '{}'")
         for cluster in clusters:
             keywords = cluster["keywords"]
             centroid = cluster["centroid"]
@@ -218,12 +249,31 @@ async def recluster(total_count: int) -> None:
             label = chosen.title() if chosen else fallback.capitalize()
             assigned_label_embeddings.append(embed_comments([label])[0])
 
-            conn.execute(
-                """INSERT INTO topics (label, keywords, comment_count, place_ids, place_counts, sentiment, computed_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (label, json.dumps(keywords), member_count, json.dumps(sorted(place_counts)),
-                 json.dumps(place_counts), sentiment, now),
+            match, similarity = match_prior_topic(centroid, prior, claimed)
+            shared = (
+                label, json.dumps(keywords), member_count, json.dumps(sorted(place_counts)),
+                json.dumps(place_counts), sentiment, json.dumps(centroid.tolist()),
+                json.dumps(candidates[:3]), json.dumps(cluster["samples"][:4]), now, now,
             )
+
+            if match is None:
+                conn.execute(
+                    """INSERT INTO topics
+                       (label, keywords, comment_count, place_ids, place_counts, sentiment, centroid,
+                        candidates, samples, computed_at, last_seen_at, status)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')""",
+                    shared,
+                )
+            else:
+                claimed.add(match["id"])
+                drifted = match["status"] == "approved" and similarity < TOPIC_STABLE_THRESHOLD
+                status = "pending" if drifted else match["status"]
+                conn.execute(
+                    """UPDATE topics SET label = ?, keywords = ?, comment_count = ?, place_ids = ?,
+                       place_counts = ?, sentiment = ?, centroid = ?, candidates = ?, samples = ?,
+                       computed_at = ?, last_seen_at = ?, status = ? WHERE id = ?""",
+                    (*shared, status, match["id"]),
+                )
 
             best_match, best_similarity = None, -1.0
             for dim in existing:
@@ -248,5 +298,6 @@ async def recluster(total_count: int) -> None:
                      member_count, json.dumps(place_counts), now, now),
                 )
 
+        conn.execute("DELETE FROM topics WHERE comment_count = 0 AND status = 'pending'")
         conn.execute("UPDATE cursor SET comments_at_last_run = ?", (total_count,))
         conn.commit()
