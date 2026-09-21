@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from admin_routes import router as admin_router
+from badge_rules import BADGE_MAX_PER_PLACE, qualifies_as_badge
 from db import init_db, get_connection
 from itinerary import plan_itinerary
 from models import PlanItineraryRequest
@@ -58,11 +59,6 @@ def list_topics():
     ] 
 
 
-BADGE_MIN_LOCAL_COUNT = int(os.environ.get("BADGE_MIN_LOCAL_COUNT", "2"))
-BADGE_MIN_LOCAL_RATIO = float(os.environ.get("BADGE_MIN_LOCAL_RATIO", "0.15"))
-BADGE_MAX_PER_PLACE = int(os.environ.get("BADGE_MAX_PER_PLACE", "5"))
-
-
 @app.get("/api/topics/places/{place_id}")
 def topics_for_place(place_id: str):
     """A topic is a badge for this place only if enough of this place's own comments
@@ -81,9 +77,7 @@ def topics_for_place(place_id: str):
     relevant = []
     for r in rows:
         local_count = local_counts[r["id"]]
-        if local_count < BADGE_MIN_LOCAL_COUNT:
-            continue
-        if clustered_total and local_count / clustered_total < BADGE_MIN_LOCAL_RATIO:
+        if not qualifies_as_badge(local_count, clustered_total):
             continue
         relevant.append({
             "id": r["id"],

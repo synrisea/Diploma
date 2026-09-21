@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from admin_auth import record_action, require_admin
+from badge_rules import qualifies_as_badge
 from db import get_connection
 from models import ApproveTopicRequest, MergeTopicsRequest, RenameDimensionRequest
 from pipeline import poll_and_maybe_recluster
@@ -230,17 +231,29 @@ def overview(_: str = Depends(require_admin)):
         rows = conn.execute("SELECT status, place_counts FROM topics").fetchall()
 
     by_status: dict[str, int] = {}
-    badged_places: set[str] = set()
+    approved_counts: list[dict[str, int]] = []
     for row in rows:
         by_status[row["status"]] = by_status.get(row["status"], 0) + 1
         if row["status"] == "approved":
-            badged_places.update(json.loads(row["place_counts"]))
+            approved_counts.append(json.loads(row["place_counts"]))
+
+    clustered_totals: dict[str, int] = {}
+    for counts in approved_counts:
+        for place_id, count in counts.items():
+            clustered_totals[place_id] = clustered_totals.get(place_id, 0) + count
+
+    badged = {
+        place_id
+        for counts in approved_counts
+        for place_id, count in counts.items()
+        if qualifies_as_badge(count, clustered_totals[place_id])
+    }
 
     return {
         "totalComments": total_comments,
         "placesWithComments": places,
         "topicsByStatus": by_status,
-        "placesWithApprovedTopics": len(badged_places),
+        "placesWithApprovedTopics": len(badged),
     }
 
 
