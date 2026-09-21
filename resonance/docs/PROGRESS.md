@@ -1,6 +1,6 @@
 # Resonance — Progress & Roadmap
 
-Last updated: 2026-09-19. This file is the source of truth for "what's done and what's next" — update it as things change instead of relying on memory.
+Last updated: 2026-09-22. This file is the source of truth for "what's done and what's next" — update it as things change instead of relying on memory.
 
 ## Architecture at a glance
 
@@ -8,17 +8,19 @@ Last updated: 2026-09-19. This file is the source of truth for "what's done and 
 |---|---|---|---|
 | `places-service` | ASP.NET Core, PostGIS | 5112 | Place data (imported from OSM), bbox queries for the map |
 | `identity-service` | ASP.NET Core | 5076 | Register/login, issues JWTs |
-| `feedback-service` | ASP.NET Core | 5066 | Free-text comments per place, JWT-protected submit, public read |
+| `feedback-service` | ASP.NET Core | 5066 | Free-text comments per place, JWT-protected submit, public read, admin hide/restore |
 | `connections-service` | ASP.NET Core | 5122 | Visit intents, chat (conversations/messages), blocks, and friend requests/friends |
-| `topics-service` | Python, FastAPI | 8010 (container listens on 8001 internally — host port moved off 8001 due to a persistent, unexplained conflict with Docker Desktop's own backend process on this machine) | AI topic discovery from comments, sentiment/dimension scoring, and (new) LLM-driven route planning. GPU-accelerated (CUDA) on this dev machine — see below. |
+| `topics-service` | Python, FastAPI | 8010 (container listens on 8001 internally — host port moved off 8001 due to a persistent, unexplained conflict with Docker Desktop's own backend process on this machine) | AI topic discovery from comments, sentiment/dimension scoring, LLM route planning, place summaries, and the admin API. Runs on CPU by default; GPU is opt-in — see below. |
 | `frontend` | React, Vite, Leaflet | 5173 | The app. Lives at `frontend/` directly (moved out of `frontend/resonance-web/`). Has a `Dockerfile` and a `docker-compose.yml` entry; still fine to run locally via `npm run dev` too. |
 
 No API gateway yet (deliberate — see "Deferred, on purpose"). The frontend calls each service directly.
 
 **All backend services + Postgres are now containerized** (`infra/docker-compose.yml`). One command brings up the whole backend:
 ```powershell
-docker compose -f infra/docker-compose.yml up -d --build
+docker compose -f infra/docker-compose.yml up -d --build                                   # any machine (CPU)
+docker compose -f infra/docker-compose.yml -f infra/docker-compose.gpu.yml up -d --build   # this machine (GPU)
 ```
+The base file is **portable and GPU-free**; GPU is opt-in through the override. See "GPU is opt-in" below.
 `--build` only actually rebuilds what changed (Docker layer caching) — the Topics image is slow the *first* time (PyTorch + pre-downloading the embedding model at build time so the container needs zero network access to Hugging Face at runtime), fast after. Migrations are **not** run automatically — still a manual one-time step per service (`dotnet ef database update ...`), same as before; the Postgres named volume (`resonance_postgres_data`) persists across container recreation so this is genuinely one-time, not per-restart. Topics' own SQLite data (clusters, cursor) persists via its own named volume (`resonance_topics_data`) too.
 
 **Known Docker Desktop/WSL2 flakiness on this machine** (not specific to this project, but has repeatedly disrupted dev sessions): Docker Desktop can leave zombie processes across restarts, WSL2 itself can get fully wedged (fixed only by a full Windows restart, not just relaunching Docker Desktop — `wsl --status` hanging is the tell), and `com.docker.backend.exe` has repeatedly shown up bound to arbitrary host ports (e.g. 8001) as part of its own port-proxy machinery — killing it takes down Docker's whole engine, so always identify a PID via `Get-CimInstance Win32_Process -Filter "ProcessId = X"` before killing anything found via `netstat`.
@@ -41,7 +43,7 @@ docker compose -f infra/docker-compose.yml up -d --build
 
 **Feedback**
 - [x] Free-text comments only — **no fixed noise/wifi/crowded checkboxes** (deliberate, see decisions below)
-- [x] JWT-protected submit, public read (comments are intentionally public, no moderation yet)
+- [x] JWT-protected submit, public read (comments are intentionally public; admins can hide one, but there is no reporting/queue workflow by design)
 - [x] Seeded with ~2,200 realistic comments across all 391 places (mixed casual/formal tone, "safety" theme weighted ~19% on purpose — see Topics service below)
 
 **Frontend**
@@ -89,7 +91,15 @@ Reuses the same `llm.py` singleton as label refinement/sentiment rather than loa
 
 **GPU acceleration (machine-specific)**: `topics-service`'s `Dockerfile` was switched from a CPU-only prebuilt `llama-cpp-python` wheel to building it from source (`CMAKE_ARGS="-DGGML_CUDA=on"`) against an `nvidia/cuda:12.4.1-devel-ubuntu22.04` base image, with `n_gpu_layers=-1` in `llm.py` to offload every layer. `infra/docker-compose.yml`'s `topics-api` service requests a GPU via `deploy.resources.reservations.devices` (nvidia driver). This cut a full-district route-planning request (candidates = ~340 places, ~4.3k prompt tokens) from ~35s on CPU to ~0.2-0.4s on this machine's RTX 5070, after a one-time ~8s CUDA kernel JIT-compile that happens automatically at container startup (`llm.py` runs a couple of throwaway warm-up completions at import time specifically so no real user request pays that cost).
 
-⚠️ **This makes `topics-service` require an NVIDIA GPU + `nvidia-container-toolkit` to build/run at all right now** — there is no CPU-only fallback path left in the Dockerfile (the old one was replaced, not kept as an alternative). If this needs to run on a machine without a compatible GPU (a different dev machine, a grading/demo machine, CI), either restore a CPU-only build path (conditional Dockerfile / build arg) or accept GPU as a hard requirement going forward. Worth deciding deliberately rather than discovering it at the worst time.
+**GPU is opt-in, not required (fixed 2026-09-22).** The Dockerfile takes `BASE_IMAGE` and `LLAMA_CMAKE_ARGS`
+build args, and `llm.py` reads `LLM_GPU_LAYERS`. The base compose file builds a CPU image
+(`ubuntu:22.04`, `-DGGML_CUDA=off`, 0 GPU layers) and declares no GPU reservation, so it runs anywhere;
+`infra/docker-compose.gpu.yml` overrides all three for CUDA. **Verified by actually running the CPU image
+with no GPU passed**: starts in ~15s on a fresh database and answers a route-planning request correctly in
+~15s (versus ~0.3s on the RTX 5070). The CPU image is 7.65GB against 23.2GB for CUDA.
+
+That test also caught a real bug: a fresh `topics.db` crashed on startup (`no such table: dimensions`)
+because a column migration ran before its `CREATE TABLE`. It would have broken any clean clone, GPU or not.
 
 ## Review scraper — real reviewer identity + photos (2026-09-18)
 
@@ -110,16 +120,76 @@ Full design in `docs/public-profiles-design.md` (implemented the day after it wa
 - Frontend: `/users/:id` (`UserProfilePage.tsx`) — avatar, bio, interest chips, language, a derived stats row (comments/places/photos, computed client-side from the comments response), comment history with place names resolved from the same district-wide places cache the map already populates (no new places-service endpoint needed). Comment author name/avatar in `CommentList.tsx` now links there.
 - Verified end to end against the real backend, including a click-through from a real scraped Google reviewer's comment on the map to their profile page.
 
-## Next step
+## AI quality pass — built and measured (2026-09-21)
 
-Two AI-quality problems are now **diagnosed and designed, not yet implemented** — both were investigated against live data on 2026-09-19 and both turned out to be worse than they looked:
+Two features were diagnosed against live data, redesigned, implemented and re-measured with the same
+harness. Full write-ups with the numbers and the wrong turns are in `docs/place-tags-design.md` and
+`docs/route-planning-v2-design.md`.
 
-- **Place tags / topic badges** — `docs/place-tags-design.md`. Measured: 122 clusters for 2,859 comments (median size 5), places showing up to 10 badges off 14 comments, badge counts displaying the *global* cluster size rather than the place's own, contradictory badges side by side ("Rude Service" next to "Well-Mannered Staff"), and nonsense labels ("Voltage Chiller"). Root causes are over-fragmented clustering, a membership-not-relevance badge rule, and label selection by word count. The top two fixes are small.
-- **Route planning** — `docs/route-planning-v2-design.md`. Measured: 0 of 4 realistic wishes answered correctly; "a cafe" returns *nothing* while 77 cafés sit in the candidate list; "coffee" matches the place literally named "Coffee Moffie" while skipping all 77. Cause is 276 undifferentiated candidates in one prompt plus a prompt that carries only name+category — none of the topic/sentiment data topics-service itself computed. Proven fix direction: the same model with the same prompt on a 24-item shortlist returns four real cafés. Design is retrieve → rank → conditionally verify.
+**Place tags** (`eval_tags.py`):
 
-A third doc came out of the tags work: **`docs/admin-panel-design.md`** — automated label selection plateaued on judgment calls, so labels need a human in the loop. Scoped wider than just that queue, because the app's entire administrative surface is currently a single endpoint (`POST /api/topics/poll-now`) and everything else is done by `docker exec` and throwaway scripts. Note its phase 0: the review queue is blocked on stable topic identity (`place-tags-design.md` §2G), since approvals keyed to autoincrement ids would be destroyed on the next retrain.
+| | Before | After |
+|---|---|---|
+| Clusters | 122 | 66 |
+| Duplicate labels | 13 | 0 |
+| Clusters ≤5 comments | 82 (67%) | 0 |
+| Badges backed by ≥2 of the place's own comments | ~0 | 100% |
 
-Older ideas still on the table, lower priority: a global "trending themes" view, AI paragraph summaries per place, recency filtering on the heatmap.
+`Voltage Chiller` and contradictory badges are gone. Shipped config: `leaf`, `min_cluster_size=5`,
+`min_samples=2`, merge at 0.82, badge needs ≥2 local comments and ≥15% of the place's *clustered* ones.
+Two recommendations in the design doc turned out to be wrong and are recorded as such: the selection
+method was not the lever (`min_cluster_size` was), and the badge ratio's original denominator counted
+comments HDBSCAN never clustered, which hid badges on the most-reviewed places entirely.
+
+**Route planning** (`eval_itinerary.py`): **3/9 → 9/9 correct**, 4 abstentions → 0, ~480ms median.
+Architecture is decompose → embedding retrieval → rank → conditionally verify. "a cafe" used to return
+nothing while 77 cafés sat in the list; "coffee" matched the place literally named "Coffee Moffie".
+The retrieval floor (0.45) was calibrated from measured scores, not guessed — real queries score
+0.56-0.93, impossible ones 0.20-0.36 — so "buy a submarine" now returns nothing in ~200ms without
+calling the LLM at all.
+
+**AI paragraph summaries per place** — `GET /api/places/{id}/summary`, shown as "What people say" on the
+place panel. Cached per place keyed on comment count, so a place only costs another LLM call once new
+comments arrive. The prompt forbids flattering the place; summaries keep the complaints.
+
+## Admin panel — built (2026-09-21)
+
+`docs/admin-panel-design.md`, phases 0-5. Lives at `/admin`, gated by an `ADMIN_USER_IDS` allowlist
+checked server-side on every route (the hidden nav icon is presentation only). Every mutation writes to
+an `admin_actions` audit table with before/after values.
+
+- **Stable topic identity** was phase 0 and a hard prerequisite: clusters now match across retrains by
+  centroid cosine, so approvals survive. Verified 66/66 ids carried through a retrain. This matters
+  because 21 of 66 auto-labels changed wording between two runs on identical data — approvals live in a
+  separate `approved_label` column for exactly that reason.
+- **Review queue** — keyboard-driven (`1`/`2`/`3`, `S`, Enter), shows the four centroid-closest comments
+  as evidence, free-text override, reject. Badges show only approved labels.
+- **Curation** — merge topics (a reversible pointer, not a row deletion), rename/hide dimensions.
+- **Moderation** — hide/restore comments; hidden ones also disappear from the feed topics-service
+  clusters on, so hidden content cannot come back as a tag.
+- **Pipeline + dashboard + audit log.**
+
+Every destructive action is reversible and arms before firing. The JWT gate was tested for rejection,
+not just acceptance — including a forged `alg: none` token carrying a valid admin subject (401).
+
+## Connections, polish and fixes (2026-09-21/22)
+
+- **Visit intents take a real date** instead of Today/Tomorrow/ThisWeekend, and the plan is free text with
+  no preset chips. A **My plans** page (`/plans`) lists every upcoming visit; the place panel prefills and
+  says "Update my plan" instead of showing your own plan inline.
+- **Unread message badges** — `Conversation` tracks per-participant last-read; the inbox icon carries a
+  count, unread rows stand out, opening a conversation marks it read. Polling only, no push.
+- **Blocking reworked to Instagram's model** — the composer is replaced up front rather than failing after
+  you type. If you blocked them you see it and can unblock; if they blocked you the wording is neutral and
+  the API never reveals it. Unblock previously had no UI at all despite the endpoint existing.
+- **Friends** — `/friends` shows your friends and sent requests, incoming requests show the real person
+  instead of "Someone", and friends can be removed (two icon buttons: message, remove).
+- **Sessions are per device, not per sign-in** — signing in again from the same device revokes that
+  device's previous refresh token instead of stacking another live credential. Labels read
+  "Chrome on Windows" rather than a raw user-agent dump.
+- **OSM enrichment** — the importer now also reads `wheelchair` and updates existing rows instead of
+  skipping them (126 places have opening hours, 12 have accessibility). Both feed route planning silently;
+  neither is surfaced in the UI, because OSM coverage is too thin to present as a feature.
 
 ## Shared-intention connections — built (2026-09-19)
 
@@ -135,13 +205,22 @@ Older ideas still on the table, lower priority: a global "trending themes" view,
 
 Verified live end-to-end (real registered accounts, real browser sessions, not mocked): matching visit intents surfacing each other, chat + polling delivery, Block disabling further messaging on both sides, friend search → request → accept, and friend-to-friend direct messaging with no shared intent involved.
 
+## Next step
+
+No committed next step. The one gap worth naming: **there are no automated tests anywhere.** Everything
+above was verified with throwaway Playwright scripts plus the two eval harnesses
+(`eval_tags.py`, `eval_itinerary.py`), which are the natural skeleton to build on.
+
+Other ideas, unstarted: a global "trending themes" view (needs the now-stable topic ids), recency
+filtering on the heatmap, favourites/collections.
+
 ## Deferred, on purpose (don't re-suggest without new information)
 
 | Item | Why deferred |
 |---|---|
-| API Gateway | Places/Identity/Feedback/Connections all duplicate Identity's JWT config independently — worth a conscious look now that there are 4+ services, not necessarily action |
+| API Gateway | All services duplicate Identity's JWT config independently, and `ADMIN_USER_IDS` is now duplicated across topics and feedback too. Worth a conscious look, not necessarily action. |
 | Trending / Favorites / Collections | Not started, no blocker — just not prioritized yet |
-| Comment moderation | Comments are deliberately public with no moderation — revisit at real volume or before a public demo |
+| Comment moderation *workflow* | Admins can now hide/restore a comment (`docs/admin-panel-design.md` §4), which is the minimum needed before a public demo. Still deliberately absent: user reporting, moderation queues, automated filtering, appeals. |
 | MediatR licensing | MediatR 13+ requires a paid license for production use; still on the free dev/test tier. Options: accept the license, pin to MediatR 12.x (MIT), or drop MediatR for direct DI. Not decided. Applies to `connections-service` too, built the same way. |
 | Road-network-aware route distances | Route planning uses straight-line (haversine) distance, not real walking paths (OSRM etc.) — accepted as good-enough for Torgovy's small, walkable footprint; revisit if that stops being true |
 | ngrok deployment (this laptop as workstation) | Frontend calls 4 separate backend origins directly (baked into `.env`), so tunneling just the frontend port doesn't work — needs either a reverse proxy in front of everything (one tunnel, same-origin, doubles as the API Gateway item above) or 5 separate tunnels + CORS allow-list updates in 3 `.cs` files + topics-service's `FRONTEND_CORS_ORIGINS` every time a free-tier ngrok URL changes. Also: free-tier ngrok's browser-warning interstitial intercepts `fetch`/XHR calls too, not just page loads — needs `ngrok-skip-browser-warning: true` on requests regardless of which approach is used. Revisit when there's an actual audience to demo to. |
