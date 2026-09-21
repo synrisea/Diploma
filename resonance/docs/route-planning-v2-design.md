@@ -1,6 +1,6 @@
 # Route Planning v2 — Diagnosis & Redesign
 
-Status: **research + design, not implemented.** Written 2026-09-19. Goal set by the ask: make "Plan a route…" *flexible*, make it *adapt to the actual places*, and add *a second LLM verification call when warranted*.
+Status: **implemented 2026-09-21.** Written 2026-09-19. Goal set by the ask: make "Plan a route…" *flexible*, make it *adapt to the actual places*, and add *a second LLM verification call when warranted*. Results and deviations in §9.
 
 All failures in §1 are reproduced against the live `topics-api` on 2026-09-19 (276 candidate places in the district bbox), not hypothesized.
 
@@ -210,3 +210,74 @@ Record the current numbers first. §1.1 *is* the baseline: 0/4 correct on realis
 - **What similarity floor counts as "nothing matches"?** Too low and every wish gets forced answers; too high and reasonable ones get dropped. Wants calibrating against §6's wish set.
 - **How many stops should an unspecified wish return?** "somewhere for coffee" currently could return 1 or 77. A default cap (3-5) with the model allowed to return fewer is probably right, but it's a product decision, not a technical one.
 - **Multilingual wishes** — the embedding model is multilingual (`paraphrase-multilingual-MiniLM-L12-v2`), but Qwen2.5-3B's Azerbaijani is weak and both prompts are English-only. Stage 1 would work in AZ/RU; Stages 0/2/3 likely degrade. Untested, and worth testing given the city.
+
+## 9. Implementation notes (2026-09-21)
+
+Built as designed: decompose → retrieve → rank → conditionally verify, in `itinerary.py` with
+`place_profiles.py` for retrieval and three prompts under `prompts/`.
+
+### Results
+
+`eval_itinerary.py` runs a nine-wish set against the live endpoint and scores category correctness,
+abstention and latency. Same script measured both columns.
+
+| Metric | Before | After |
+|---|---|---|
+| Correct | 3/9 | **9/9** |
+| Abstentions on answerable wishes | 4 | **0** |
+| Median latency | 336ms | 463ms |
+
+Every failure from §1 is fixed. `a cafe` returns four cafés instead of nothing; `quiet cafe with
+good wifi` returns a café instead of a wedding dress shop; `i want to buy socks` returns clothing
+shops instead of a jeweller; `coffee, then a bookshop, then dinner` decomposes into three legs and
+finds an actual bookshop, which the single-call design never did.
+
+Latency rose ~130ms for two to four LLM calls instead of one, because Stage 2's prompt is ~5x smaller
+than the old 4.3k-token one. Well inside the budget estimated in §4.
+
+### The retrieval floor was calibrated, not guessed
+
+§3 proposed a similarity floor for "nothing matches" and §8 flagged that it needed calibrating.
+Measured top-1 retrieval scores across real and impossible queries:
+
+| Query | Top score |
+|---|---|
+| cafe / restaurant dinner / bookshop | 0.89 - 0.93 |
+| socks (weakest legitimate query) | 0.557 |
+| dentist (none exist in this district) | 0.361 |
+| submarine | 0.263 |
+| nuclear reactor / helicopter | 0.197 - 0.214 |
+
+The gap between the weakest real query and the strongest impossible one is wide, so
+`ITINERARY_RETRIEVAL_FLOOR = 0.45` sits comfortably between. "Buy a submarine" now returns nothing
+in ~200ms **without calling the LLM at all**, since the floor short-circuits before Stage 2.
+
+This is calibrated against one district's data; a different city or a much larger corpus wants the
+measurement re-running.
+
+### Deviations from the design
+
+- **Ranking is per leg, not one call over all legs.** §2's Stage 2 implied a single ranking pass.
+  Ranking each leg separately keeps every prompt at ~25 candidates, makes leg ordering fall out for
+  free, and costs one short call per leg rather than one long one.
+- **Place profiles are name + category + topic labels, not comments.** §2's Stage 1 suggested
+  including representative comments. MiniLM truncates at ~128 tokens, so concatenated comments would
+  mostly be cut off; topic labels are already derived from those comments and are far denser. Profile
+  embeddings are cached per place and recomputed only when a retrain changes that place's topics.
+- **Verification triggers are narrower than §3 proposed.** Implemented: empty selection despite
+  viable candidates, and weak mean agreement between selection and wish. Not implemented: category
+  contradiction and over-large results — both became unreachable once the retrieval floor and the
+  per-leg cap were in place.
+- **Per-leg result cap scales with leg count.** Not in the original design. A single-stop wish returns
+  up to four options; a multi-leg wish returns two per leg, because eight numbered stops for
+  "a cafe, then a bookshop" reads as an itinerary to walk rather than a set of choices. This partly
+  answers §8's "how many stops" question, though whether a single-leg wish should return options at
+  all or just one best pick is still open.
+
+### Not done
+
+- **GBNF-constrained JSON** — all three call sites still substring-hunt for `{`…`}` in a try/except.
+- **§5's data gaps stand.** Accessibility and opening-hours wishes remain unanswerable because that
+  data was never imported from OSM. `somewhere to take my mum who uses a wheelchair` now returns
+  plausible places, but on semantic similarity alone — it is not accessibility-aware, and should not
+  be presented as if it is.
