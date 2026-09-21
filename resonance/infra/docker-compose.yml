@@ -94,6 +94,10 @@ services:
       FEEDBACK_API_BASE_URL: http://feedback-api:8080
       FEEDBACK_FETCH_LIMIT: "500"
       FEEDBACK_RETRAIN_THRESHOLD: "100"
+      JWT_SECRET: xYGP6Eb2bk4JXl0o0OPCqowtMuyG0cp6
+      JWT_ISSUER: Resonance.Identity
+      JWT_AUDIENCE: Resonance
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS}
     volumes:
       - resonance_topics_data:/data
     depends_on:
