@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAdminTopics, useApproveTopic, useRejectTopic } from '../../hooks/useAdmin';
 import type { AdminTopic } from '../../types/admin';
+import { ConfirmButton } from './ConfirmButton';
 
 const labelClass = 'font-mono text-[10px] uppercase tracking-[0.1em] text-stone-500';
 const inputClass =
@@ -160,14 +161,13 @@ export function TopicReview() {
           <button type="button" onClick={submitApproval} disabled={isBusy || !chosenLabel} className={primaryButtonClass}>
             {approve.isPending ? 'Approving…' : `Approve “${chosenLabel || '—'}” (enter)`}
           </button>
-          <button
-            type="button"
-            onClick={() => reject.mutate(topic.id)}
+          <ConfirmButton
+            label="Reject — never show this"
+            confirmLabel={`Really reject "${topic.label}"?`}
             disabled={isBusy}
             className={dangerButtonClass}
-          >
-            Reject — never show this
-          </button>
+            onConfirm={() => reject.mutate(topic.id)}
+          />
         </div>
       </div>
     </div>

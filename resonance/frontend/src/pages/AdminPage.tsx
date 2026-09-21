@@ -8,12 +8,16 @@ import {
   useDemoteDimension,
   useForceRetrain,
   useIsAdmin,
+  useMergeTopics,
   usePipelineStatus,
+  useRenameDimension,
   useReopenTopic,
 } from '../hooks/useAdmin';
+import { ConfirmButton } from '../components/admin/ConfirmButton';
 import { TopicReview } from '../components/admin/TopicReview';
 import { BackLink } from '../components/layout/BackLink';
 import { formatRelativeTime } from '../lib/formatRelativeTime';
+import type { AdminDimension, AdminTopic } from '../types/admin';
 
 const labelClass = 'font-mono text-[10px] uppercase tracking-[0.1em] text-stone-500';
 const cardClass = 'rounded-xl border border-stone-900/10 bg-stone-900/[0.025] px-3.5 py-3';
@@ -32,71 +36,195 @@ function Stat({ value, label }: { value: number | string; label: string }) {
   );
 }
 
+const STATUS_FILTERS = ['all', 'pending', 'approved', 'rejected'] as const;
+
 function TopicsTab() {
-  const { data: topics = [], isLoading } = useAdminTopics();
+  const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]>('all');
+  const { data: topics = [], isLoading } = useAdminTopics(filter === 'all' ? undefined : filter);
   const reopen = useReopenTopic();
+  const merge = useMergeTopics();
+  const [mergeSource, setMergeSource] = useState<AdminTopic | null>(null);
 
   if (isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
 
   return (
-    <div className="flex flex-col gap-2">
-      {topics.map((topic) => (
-        <div key={topic.id} className={`flex items-center justify-between gap-3 ${cardClass}`}>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-stone-900">
-              {topic.approvedLabel ?? topic.label}
-              {topic.approvedLabel && topic.approvedLabel !== topic.label && (
-                <span className="ml-2 font-mono text-[11px] text-stone-500">auto: {topic.label}</span>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {STATUS_FILTERS.map((name) => (
+          <button
+            key={name}
+            type="button"
+            onClick={() => setFilter(name)}
+            className={`rounded-full px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.06em] transition-colors ${
+              filter === name ? 'bg-stone-900/10 text-stone-900' : 'text-stone-500 hover:text-stone-900'
+            }`}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+
+      {mergeSource && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3.5 py-3">
+          <p className="text-sm text-stone-900">
+            Merging <span className="font-medium">{mergeSource.approvedLabel ?? mergeSource.label}</span> into… pick its
+            destination below.
+          </p>
+          <button type="button" onClick={() => setMergeSource(null)} className={mutedButtonClass}>
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {merge.isError && (
+        <p className="text-sm text-sentiment-negative">
+          {merge.error instanceof Error ? merge.error.message : 'Merge failed.'}
+        </p>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {topics.map((topic) => (
+          <div key={topic.id} className={`flex items-center justify-between gap-3 ${cardClass}`}>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-stone-900">
+                {topic.approvedLabel ?? topic.label}
+                {topic.approvedLabel && topic.approvedLabel !== topic.label && (
+                  <span className="ml-2 font-mono text-[11px] text-stone-500">auto: {topic.label}</span>
+                )}
+              </p>
+              <p className="font-mono text-[11px] text-stone-500">
+                #{topic.id} · {topic.status} · {topic.commentCount} comments · {topic.placeCount} places
+              </p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5">
+              {mergeSource ? (
+                mergeSource.id !== topic.id && (
+                  <ConfirmButton
+                    label="Merge here"
+                    confirmLabel="Confirm merge"
+                    disabled={merge.isPending}
+                    className={mutedButtonClass}
+                    onConfirm={() =>
+                      merge.mutate(
+                        { sourceId: mergeSource.id, targetId: topic.id },
+                        { onSuccess: () => setMergeSource(null) },
+                      )
+                    }
+                  />
+                )
+              ) : (
+                <>
+                  <button type="button" onClick={() => setMergeSource(topic)} className={mutedButtonClass}>
+                    Merge
+                  </button>
+                  {topic.status !== 'pending' && (
+                    <button
+                      type="button"
+                      onClick={() => reopen.mutate(topic.id)}
+                      disabled={reopen.isPending}
+                      className={mutedButtonClass}
+                    >
+                      Reopen
+                    </button>
+                  )}
+                </>
               )}
-            </p>
-            <p className="font-mono text-[11px] text-stone-500">
-              {topic.status} · {topic.commentCount} comments · {topic.placeCount} places · {topic.sentiment}
-            </p>
+            </div>
           </div>
-          {topic.status !== 'pending' && (
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DimensionRow({ dimension }: { dimension: AdminDimension }) {
+  const rename = useRenameDimension();
+  const demote = useDemoteDimension();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(dimension.label);
+
+  const save = () => {
+    const label = draft.trim();
+    if (!label || label === dimension.label) {
+      setEditing(false);
+      return;
+    }
+    rename.mutate({ dimensionId: dimension.id, label }, { onSuccess: () => setEditing(false) });
+  };
+
+  return (
+    <div className={`flex items-center justify-between gap-3 ${cardClass}`}>
+      <div className="min-w-0 flex-1">
+        {editing ? (
+          <input
+            type="text"
+            value={draft}
+            autoFocus
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save();
+              if (e.key === 'Escape') setEditing(false);
+            }}
+            maxLength={40}
+            className="w-full rounded-lg border border-stone-900/10 bg-stone-900/[0.03] px-2.5 py-1.5 text-sm text-stone-900 focus:border-brand-500 focus:outline-2 focus:outline-brand-500 focus:-outline-offset-1"
+          />
+        ) : (
+          <p className="truncate text-sm font-medium text-stone-900">{dimension.label}</p>
+        )}
+        <p className="mt-0.5 font-mono text-[11px] text-stone-500">
+          {dimension.comment_count} comments · seen {dimension.times_matched}x · {dimension.sentiment}
+        </p>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        {editing ? (
+          <>
+            <button type="button" onClick={save} disabled={rename.isPending} className={mutedButtonClass}>
+              {rename.isPending ? 'Saving…' : 'Save'}
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className={mutedButtonClass}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
             <button
               type="button"
-              onClick={() => reopen.mutate(topic.id)}
-              disabled={reopen.isPending}
+              onClick={() => {
+                setDraft(dimension.label);
+                setEditing(true);
+              }}
               className={mutedButtonClass}
             >
-              Reopen
+              Rename
             </button>
-          )}
-        </div>
-      ))}
+            <ConfirmButton
+              label="Demote"
+              confirmLabel={`Remove "${dimension.label}"?`}
+              disabled={demote.isPending}
+              className={mutedButtonClass}
+              onConfirm={() => demote.mutate(dimension.id)}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
 function DimensionsTab() {
   const { data: dimensions = [], isLoading } = useAdminDimensions();
-  const demote = useDemoteDimension();
 
   if (isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
 
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-stone-500">
-        Dimensions drive the heatmap picker. Demoting one removes it from that menu.
+        Dimensions drive the heatmap picker, so renaming one changes what users see there. Demoting removes it.
       </p>
       {dimensions.map((dimension) => (
-        <div key={dimension.id} className={`flex items-center justify-between gap-3 ${cardClass}`}>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-stone-900">{dimension.label}</p>
-            <p className="font-mono text-[11px] text-stone-500">
-              {dimension.comment_count} comments · seen {dimension.times_matched}x · {dimension.sentiment}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => demote.mutate(dimension.id)}
-            disabled={demote.isPending}
-            className={mutedButtonClass}
-          >
-            Demote
-          </button>
-        </div>
+        <DimensionRow key={dimension.id} dimension={dimension} />
       ))}
     </div>
   );
