@@ -5,13 +5,15 @@ import {
   useAdminDimensions,
   useAdminTopics,
   useAuditLog,
-  useDemoteDimension,
   useForceRetrain,
   useIsAdmin,
+  useHideDimension,
   useMergeTopics,
   usePipelineStatus,
   useRenameDimension,
   useReopenTopic,
+  useRestoreDimension,
+  useUnmergeTopic,
 } from '../hooks/useAdmin';
 import { ConfirmButton } from '../components/admin/ConfirmButton';
 import { TopicReview } from '../components/admin/TopicReview';
@@ -43,6 +45,7 @@ function TopicsTab() {
   const { data: topics = [], isLoading } = useAdminTopics(filter === 'all' ? undefined : filter);
   const reopen = useReopenTopic();
   const merge = useMergeTopics();
+  const unmerge = useUnmergeTopic();
   const [mergeSource, setMergeSource] = useState<AdminTopic | null>(null);
 
   if (isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
@@ -67,8 +70,8 @@ function TopicsTab() {
       {mergeSource && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3.5 py-3">
           <p className="text-sm text-stone-900">
-            Merging <span className="font-medium">{mergeSource.approvedLabel ?? mergeSource.label}</span> into… pick its
-            destination below.
+            Now pick the tag that <span className="font-medium">{mergeSource.approvedLabel ?? mergeSource.label}</span> should
+            join.
           </p>
           <button type="button" onClick={() => setMergeSource(null)} className={mutedButtonClass}>
             Cancel
@@ -78,7 +81,7 @@ function TopicsTab() {
 
       {merge.isError && (
         <p className="text-sm text-sentiment-negative">
-          {merge.error instanceof Error ? merge.error.message : 'Merge failed.'}
+          {merge.error instanceof Error ? merge.error.message : 'That did not work.'}
         </p>
       )}
 
@@ -93,16 +96,17 @@ function TopicsTab() {
                 )}
               </p>
               <p className="font-mono text-[11px] text-stone-500">
-                #{topic.id} · {topic.status} · {topic.commentCount} comments · {topic.placeCount} places
+                #{topic.id} · {topic.mergedInto ? `joined to #${topic.mergedInto}` : topic.status} ·{' '}
+                {topic.commentCount} comments · {topic.placeCount} places
               </p>
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5">
               {mergeSource ? (
-                mergeSource.id !== topic.id && (
+                mergeSource.id !== topic.id && !topic.mergedInto && (
                   <ConfirmButton
-                    label="Merge here"
-                    confirmLabel="Confirm merge"
+                    label="Join this"
+                    confirmLabel="Click again"
                     disabled={merge.isPending}
                     className={mutedButtonClass}
                     onConfirm={() =>
@@ -113,10 +117,19 @@ function TopicsTab() {
                     }
                   />
                 )
+              ) : topic.mergedInto ? (
+                <button
+                  type="button"
+                  onClick={() => unmerge.mutate(topic.id)}
+                  disabled={unmerge.isPending}
+                  className={mutedButtonClass}
+                >
+                  Undo join
+                </button>
               ) : (
                 <>
                   <button type="button" onClick={() => setMergeSource(topic)} className={mutedButtonClass}>
-                    Merge
+                    Join
                   </button>
                   {topic.status !== 'pending' && (
                     <button
@@ -140,7 +153,8 @@ function TopicsTab() {
 
 function DimensionRow({ dimension }: { dimension: AdminDimension }) {
   const rename = useRenameDimension();
-  const demote = useDemoteDimension();
+  const hide = useHideDimension();
+  const restore = useRestoreDimension();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(dimension.label);
 
@@ -173,7 +187,7 @@ function DimensionRow({ dimension }: { dimension: AdminDimension }) {
           <p className="truncate text-sm font-medium text-stone-900">{dimension.label}</p>
         )}
         <p className="mt-0.5 font-mono text-[11px] text-stone-500">
-          {dimension.comment_count} comments · seen {dimension.times_matched}x · {dimension.sentiment}
+          {dimension.hidden ? 'hidden · ' : ''}{dimension.comment_count} comments · {dimension.sentiment}
         </p>
       </div>
 
@@ -199,13 +213,24 @@ function DimensionRow({ dimension }: { dimension: AdminDimension }) {
             >
               Rename
             </button>
-            <ConfirmButton
-              label="Demote"
-              confirmLabel={`Remove "${dimension.label}"?`}
-              disabled={demote.isPending}
-              className={mutedButtonClass}
-              onConfirm={() => demote.mutate(dimension.id)}
-            />
+            {dimension.hidden ? (
+              <button
+                type="button"
+                onClick={() => restore.mutate(dimension.id)}
+                disabled={restore.isPending}
+                className={mutedButtonClass}
+              >
+                Show again
+              </button>
+            ) : (
+              <ConfirmButton
+                label="Hide"
+                confirmLabel="Click again to hide"
+                disabled={hide.isPending}
+                className={mutedButtonClass}
+                onConfirm={() => hide.mutate(dimension.id)}
+              />
+            )}
           </>
         )}
       </div>
@@ -221,7 +246,8 @@ function DimensionsTab() {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-stone-500">
-        Dimensions drive the heatmap picker, so renaming one changes what users see there. Demoting removes it.
+        These are the options in the heatmap menu. Renaming one changes what people see. Hiding one takes it
+        off the menu, and you can put it back.
       </p>
       {dimensions.map((dimension) => (
         <DimensionRow key={dimension.id} dimension={dimension} />
@@ -240,15 +266,15 @@ function PipelineTab() {
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat value={status.totalComments} label="Comments" />
-        <Stat value={status.commentsSinceLastRun} label="Since retrain" />
-        <Stat value={status.topicCount} label="Topics" />
-        <Stat value={status.pendingReview} label="Pending review" />
+        <Stat value={status.commentsSinceLastRun} label="New comments" />
+        <Stat value={status.topicCount} label="Tags" />
+        <Stat value={status.pendingReview} label="To review" />
       </div>
 
       <div className={cardClass}>
         <p className="font-mono text-[11px] text-stone-500">
-          last retrain: {status.lastReclusteredAt ? formatRelativeTime(status.lastReclusteredAt) : 'never'}
-          {' · '}unclassified sentiment: {status.unclassifiedSentiment}
+          last rebuilt {status.lastReclusteredAt ? formatRelativeTime(status.lastReclusteredAt) : 'never'}
+          {status.unclassifiedSentiment > 0 ? ` · ${status.unclassifiedSentiment} comments not scored yet` : ''}
         </p>
       </div>
 
@@ -259,14 +285,14 @@ function PipelineTab() {
           disabled={retrain.isPending}
           className="self-start rounded-full bg-brand-500 px-4 py-2 text-sm font-medium text-brand-ink transition-colors hover:bg-brand-600 disabled:opacity-50"
         >
-          {retrain.isPending ? 'Retraining… this takes a minute' : 'Force retrain'}
+          {retrain.isPending ? 'Rebuilding, this takes a minute…' : 'Rebuild tags'}
         </button>
         <p className="text-sm text-stone-500">
-          Re-embeds every comment, re-clusters, and regenerates labels. New topics land in the review queue.
+          Looks at every comment again and works out the tags from scratch. New ones go to the review list.
         </p>
         {retrain.isError && (
           <p className="text-sm text-sentiment-negative">
-            {retrain.error instanceof Error ? retrain.error.message : 'Retrain failed.'}
+            {retrain.error instanceof Error ? retrain.error.message : 'That did not work.'}
           </p>
         )}
       </div>
@@ -308,7 +334,7 @@ export function AdminPage() {
     return (
       <div className="flex-1 overflow-y-auto px-6 py-10">
         <BackLink />
-        <p className="mx-auto max-w-3xl text-sm text-stone-500">Checking access…</p>
+        <p className="mx-auto max-w-3xl text-sm text-stone-500">One moment…</p>
       </div>
     );
   }
@@ -317,7 +343,7 @@ export function AdminPage() {
     return (
       <div className="flex-1 overflow-y-auto px-6 py-10">
         <BackLink />
-        <p className="mx-auto max-w-3xl text-sm text-stone-500">This area is for administrators.</p>
+        <p className="mx-auto max-w-3xl text-sm text-stone-500">You do not have access to this page.</p>
       </div>
     );
   }
@@ -328,15 +354,15 @@ export function AdminPage() {
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <div>
           <p className={labelClass}>Admin</p>
-          <h1 className="mt-1 font-display text-3xl text-stone-900">Control panel</h1>
+          <h1 className="mt-1 font-display text-3xl text-stone-900">Admin</h1>
         </div>
 
         {overview && (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Stat value={overview.totalComments} label="Comments" />
             <Stat value={overview.placesWithComments} label="Places" />
-            <Stat value={overview.topicsByStatus.pending ?? 0} label="Pending" />
-            <Stat value={overview.placesWithApprovedTopics} label="Places badged" />
+            <Stat value={overview.topicsByStatus.pending ?? 0} label="To review" />
+            <Stat value={overview.placesWithApprovedTopics} label="Places with tags" />
           </div>
         )}
 

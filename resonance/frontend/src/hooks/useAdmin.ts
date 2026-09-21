@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   approveTopic,
-  demoteDimension,
+  hideDimension,
   forceRetrain,
   getAdminDimensions,
   getAdminOverview,
@@ -12,6 +12,8 @@ import {
   rejectTopic,
   renameDimension,
   reopenTopic,
+  restoreDimension,
+  unmergeTopic,
 } from '../api/admin';
 import { useAuth } from '../auth/AuthContext';
 import type { TopicStatus } from '../types/admin';
@@ -116,8 +118,16 @@ export function useRenameDimension() {
   );
 }
 
-export function useDemoteDimension() {
-  return useAdminMutation<number>((token, dimensionId) => demoteDimension(token, dimensionId));
+export function useHideDimension() {
+  return useAdminMutation<number>((token, dimensionId) => hideDimension(token, dimensionId));
+}
+
+export function useRestoreDimension() {
+  return useAdminMutation<number>((token, dimensionId) => restoreDimension(token, dimensionId));
+}
+
+export function useUnmergeTopic() {
+  return useAdminMutation<number>((token, topicId) => unmergeTopic(token, topicId));
 }
 
 export function useForceRetrain() {

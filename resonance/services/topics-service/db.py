@@ -61,6 +61,11 @@ def init_db() -> None:
             conn.execute("ALTER TABLE topics ADD COLUMN reviewed_by TEXT")
         if "last_seen_at" not in topic_columns:
             conn.execute("ALTER TABLE topics ADD COLUMN last_seen_at TEXT")
+        if "merged_into" not in topic_columns:
+            conn.execute("ALTER TABLE topics ADD COLUMN merged_into INTEGER")
+        dimension_columns = {row["name"] for row in conn.execute("PRAGMA table_info(dimensions)")}
+        if "hidden" not in dimension_columns:
+            conn.execute("ALTER TABLE dimensions ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS admin_actions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

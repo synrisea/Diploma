@@ -82,13 +82,13 @@ export function TopicReview() {
     return () => window.removeEventListener('keydown', onKey);
   }, [options, topic?.id, chosenLabel, pending.length]);
 
-  if (isLoading) return <p className="text-sm text-stone-500">Loading queue…</p>;
+  if (isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
 
   if (!topic) {
     return (
       <div className="rounded-xl border border-stone-900/10 bg-stone-900/[0.025] px-4 py-6">
-        <p className="text-sm text-stone-700">Queue is empty — every topic has been reviewed.</p>
-        <p className="mt-1 text-sm text-stone-500">New topics appear here after a retrain discovers them.</p>
+        <p className="text-sm text-stone-700">Nothing left to review.</p>
+        <p className="mt-1 text-sm text-stone-500">New tags show up here after the next rebuild.</p>
       </div>
     );
   }
@@ -97,10 +97,10 @@ export function TopicReview() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className={labelClass}>
-          Topic {cursor + 1} of {pending.length} pending
+          {cursor + 1} of {pending.length}
         </p>
         <button type="button" onClick={skip} disabled={isBusy} className={mutedButtonClass}>
-          Skip (s)
+          Skip
         </button>
       </div>
 
@@ -114,7 +114,7 @@ export function TopicReview() {
 
         {topic.samples.length > 0 && (
           <div className="flex flex-col gap-1.5 border-t border-stone-900/10 pt-3">
-            <p className={labelClass}>Representative comments</p>
+            <p className={labelClass}>What people said</p>
             {topic.samples.map((sample, i) => (
               <p key={i} className="text-sm text-stone-700">
                 “{sample.length > 180 ? `${sample.slice(0, 180)}…` : sample}”
@@ -124,7 +124,7 @@ export function TopicReview() {
         )}
 
         <div className="flex flex-col gap-2 border-t border-stone-900/10 pt-3">
-          <p className={labelClass}>Choose a label</p>
+          <p className={labelClass}>Name this tag</p>
           <div className="flex flex-wrap gap-1.5">
             {options.map((option, i) => (
               <CandidateButton
@@ -143,7 +143,7 @@ export function TopicReview() {
             type="text"
             value={customLabel}
             onChange={(e) => setCustomLabel(e.target.value)}
-            placeholder="or type your own…"
+            placeholder="or write your own"
             maxLength={40}
             className={inputClass}
           />
@@ -153,17 +153,17 @@ export function TopicReview() {
           <p className="text-sm text-sentiment-negative">
             {(approve.error ?? reject.error) instanceof Error
               ? ((approve.error ?? reject.error) as Error).message
-              : 'Something went wrong.'}
+              : 'That did not work.'}
           </p>
         )}
 
         <div className="flex flex-wrap items-center gap-2 border-t border-stone-900/10 pt-3">
           <button type="button" onClick={submitApproval} disabled={isBusy || !chosenLabel} className={primaryButtonClass}>
-            {approve.isPending ? 'Approving…' : `Approve “${chosenLabel || '—'}” (enter)`}
+            {approve.isPending ? 'Saving…' : `Use “${chosenLabel || '…'}”`}
           </button>
           <ConfirmButton
-            label="Reject — never show this"
-            confirmLabel={`Really reject "${topic.label}"?`}
+            label="Hide this tag"
+            confirmLabel="Click again to hide"
             disabled={isBusy}
             className={dangerButtonClass}
             onConfirm={() => reject.mutate(topic.id)}

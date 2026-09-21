@@ -65,6 +65,10 @@ export async function mergeTopics(accessToken: string, sourceId: number, targetI
   });
 }
 
+export async function unmergeTopic(accessToken: string, topicId: number): Promise<void> {
+  await adminFetch(`/topics/${topicId}/unmerge`, accessToken, { method: 'POST' });
+}
+
 export async function getAdminDimensions(accessToken: string): Promise<AdminDimension[]> {
   return (await (await adminFetch('/dimensions', accessToken)).json()) as AdminDimension[];
 }
@@ -77,8 +81,12 @@ export async function renameDimension(accessToken: string, dimensionId: number, 
   });
 }
 
-export async function demoteDimension(accessToken: string, dimensionId: number): Promise<void> {
-  await adminFetch(`/dimensions/${dimensionId}`, accessToken, { method: 'DELETE' });
+export async function hideDimension(accessToken: string, dimensionId: number): Promise<void> {
+  await adminFetch(`/dimensions/${dimensionId}/hide`, accessToken, { method: 'POST' });
+}
+
+export async function restoreDimension(accessToken: string, dimensionId: number): Promise<void> {
+  await adminFetch(`/dimensions/${dimensionId}/restore`, accessToken, { method: 'POST' });
 }
 
 export async function getPipelineStatus(accessToken: string): Promise<PipelineStatus> {

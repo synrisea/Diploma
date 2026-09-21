@@ -67,18 +67,26 @@ def topics_for_place(place_id: str):
     the most-reviewed places fall under the threshold and show nothing."""
     with get_connection() as conn:
         rows = conn.execute(
-            """SELECT id, label, approved_label, keywords, comment_count, place_counts, sentiment, computed_at
-               FROM topics WHERE status = 'approved'"""
+            """SELECT id, label, approved_label, keywords, comment_count, place_counts, sentiment,
+               computed_at, status, merged_into FROM topics"""
         ).fetchall()
 
-    local_counts = {r["id"]: json.loads(r["place_counts"]).get(place_id, 0) for r in rows}
+    by_id = {r["id"]: r for r in rows}
+    local_counts: dict[int, int] = {}
+    for r in rows:
+        target = by_id.get(r["merged_into"]) if r["merged_into"] else r
+        if target is None or target["status"] != "approved":
+            continue
+        count = json.loads(r["place_counts"]).get(place_id, 0)
+        local_counts[target["id"]] = local_counts.get(target["id"], 0) + count
+
     clustered_total = sum(local_counts.values())
 
     relevant = []
-    for r in rows:
-        local_count = local_counts[r["id"]]
+    for topic_id, local_count in local_counts.items():
         if not qualifies_as_badge(local_count, clustered_total):
             continue
+        r = by_id[topic_id]
         relevant.append({
             "id": r["id"],
             "label": r["approved_label"] or r["label"],
@@ -101,7 +109,8 @@ async def poll_now():
 def list_dimensions():
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT id, label, keywords, sentiment, comment_count, place_counts, first_seen_at, last_seen_at, times_matched FROM dimensions ORDER BY comment_count DESC"
+            """SELECT id, label, keywords, sentiment, comment_count, place_counts, first_seen_at,
+               last_seen_at, times_matched FROM dimensions WHERE hidden = 0 ORDER BY comment_count DESC"""
         ).fetchall()
 
     return [

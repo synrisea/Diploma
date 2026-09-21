@@ -13,6 +13,7 @@ export interface AdminTopic {
   sentiment: string;
   computedAt: string;
   reviewedAt: string | null;
+  mergedInto: number | null;
 }
 
 export interface AdminDimension {
@@ -22,6 +23,7 @@ export interface AdminDimension {
   comment_count: number;
   times_matched: number;
   last_seen_at: string;
+  hidden: number;
 }
 
 export interface PipelineStatus {

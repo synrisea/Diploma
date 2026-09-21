@@ -26,13 +26,14 @@ def _topic_row(row) -> dict:
         "sentiment": row["sentiment"],
         "computedAt": row["computed_at"],
         "reviewedAt": row["reviewed_at"],
+        "mergedInto": row["merged_into"],
     }
 
 
 @router.get("/topics")
 def list_topics_for_review(status: str | None = None, _: str = Depends(require_admin)):
     query = """SELECT id, label, approved_label, status, keywords, candidates, samples,
-               comment_count, place_counts, sentiment, computed_at, reviewed_at FROM topics"""
+               comment_count, place_counts, sentiment, computed_at, reviewed_at, merged_into FROM topics"""
     params: tuple = ()
     if status:
         query += " WHERE status = ?"
@@ -47,7 +48,7 @@ def list_topics_for_review(status: str | None = None, _: str = Depends(require_a
 def _load_topic(conn, topic_id: int):
     row = conn.execute(
         """SELECT id, label, approved_label, status, keywords, candidates, samples,
-           comment_count, place_counts, sentiment, computed_at, reviewed_at
+           comment_count, place_counts, sentiment, computed_at, reviewed_at, merged_into
            FROM topics WHERE id = ?""",
         (topic_id,),
     ).fetchone()
@@ -109,47 +110,51 @@ def reopen_topic(topic_id: int, admin_id: str = Depends(require_admin)):
 
 @router.post("/topics/merge")
 def merge_topics(body: MergeTopicsRequest, admin_id: str = Depends(require_admin)):
-    """Fold one topic into another. The automatic centroid merge runs at a fixed
-    threshold and leaves near-synonyms behind; this is the manual override."""
+    """Point one topic at another instead of folding their rows together. Counts stay
+    on their own row and are combined when badges are read, so a retrain can recompute
+    each cluster independently and the merge can be undone without losing anything."""
     if body.sourceId == body.targetId:
-        raise HTTPException(status_code=400, detail="Cannot merge a topic into itself.")
+        raise HTTPException(status_code=400, detail="A topic cannot merge into itself.")
 
     with get_connection() as conn:
         source = _load_topic(conn, body.sourceId)
         target = _load_topic(conn, body.targetId)
 
-        merged_counts = json.loads(target["place_counts"])
-        for place_id, count in json.loads(source["place_counts"]).items():
-            merged_counts[place_id] = merged_counts.get(place_id, 0) + count
-        merged_keywords = list(dict.fromkeys(json.loads(target["keywords"]) + json.loads(source["keywords"])))
+        if target["merged_into"]:
+            raise HTTPException(status_code=400, detail="That topic is already merged into another one.")
+        if conn.execute("SELECT 1 FROM topics WHERE merged_into = ?", (body.sourceId,)).fetchone():
+            raise HTTPException(status_code=400, detail="Other topics are merged into this one. Undo those first.")
 
-        conn.execute(
-            """UPDATE topics SET comment_count = ?, place_counts = ?, place_ids = ?, keywords = ?
-               WHERE id = ?""",
-            (
-                target["comment_count"] + source["comment_count"],
-                json.dumps(merged_counts),
-                json.dumps(sorted(merged_counts)),
-                json.dumps(merged_keywords),
-                body.targetId,
-            ),
-        )
-        conn.execute("DELETE FROM topics WHERE id = ?", (body.sourceId,))
+        conn.execute("UPDATE topics SET merged_into = ? WHERE id = ?", (body.targetId, body.sourceId))
         conn.commit()
 
     record_action(
         admin_id, "merge", "topic", body.sourceId,
-        {"label": source["label"], "commentCount": source["comment_count"]},
-        {"mergedInto": body.targetId, "targetLabel": target["label"]},
+        {"mergedInto": source["merged_into"], "label": source["label"]},
+        {"mergedInto": body.targetId, "targetLabel": target["approved_label"] or target["label"]},
     )
     return {"status": "merged", "targetId": body.targetId}
+
+
+@router.post("/topics/{topic_id}/unmerge")
+def unmerge_topic(topic_id: int, admin_id: str = Depends(require_admin)):
+    with get_connection() as conn:
+        row = _load_topic(conn, topic_id)
+        if not row["merged_into"]:
+            raise HTTPException(status_code=400, detail="That topic is not merged.")
+        conn.execute("UPDATE topics SET merged_into = NULL WHERE id = ?", (topic_id,))
+        conn.commit()
+
+    record_action(admin_id, "unmerge", "topic", topic_id, {"mergedInto": row["merged_into"]}, {"mergedInto": None})
+    return {"status": "unmerged"}
 
 
 @router.get("/dimensions")
 def list_dimensions_admin(_: str = Depends(require_admin)):
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT id, label, sentiment, comment_count, times_matched, last_seen_at FROM dimensions ORDER BY comment_count DESC"
+            """SELECT id, label, sentiment, comment_count, times_matched, last_seen_at, hidden
+               FROM dimensions ORDER BY hidden, comment_count DESC"""
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -171,17 +176,32 @@ def rename_dimension(dimension_id: int, body: RenameDimensionRequest, admin_id: 
     return {"status": "renamed", "label": label}
 
 
-@router.delete("/dimensions/{dimension_id}")
-def demote_dimension(dimension_id: int, admin_id: str = Depends(require_admin)):
+@router.post("/dimensions/{dimension_id}/hide")
+def hide_dimension(dimension_id: int, admin_id: str = Depends(require_admin)):
+    """Hidden rather than deleted, so it can be brought back and so a retrain that
+    still matches this dimension does not resurrect it silently."""
     with get_connection() as conn:
-        row = conn.execute("SELECT label FROM dimensions WHERE id = ?", (dimension_id,)).fetchone()
+        row = conn.execute("SELECT label, hidden FROM dimensions WHERE id = ?", (dimension_id,)).fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Dimension not found.")
-        conn.execute("DELETE FROM dimensions WHERE id = ?", (dimension_id,))
+        conn.execute("UPDATE dimensions SET hidden = 1 WHERE id = ?", (dimension_id,))
         conn.commit()
 
-    record_action(admin_id, "demote", "dimension", dimension_id, {"label": row["label"]}, None)
-    return {"status": "demoted"}
+    record_action(admin_id, "hide", "dimension", dimension_id, {"hidden": bool(row["hidden"])}, {"hidden": True})
+    return {"status": "hidden"}
+
+
+@router.post("/dimensions/{dimension_id}/restore")
+def restore_dimension(dimension_id: int, admin_id: str = Depends(require_admin)):
+    with get_connection() as conn:
+        row = conn.execute("SELECT label, hidden FROM dimensions WHERE id = ?", (dimension_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Dimension not found.")
+        conn.execute("UPDATE dimensions SET hidden = 0 WHERE id = ?", (dimension_id,))
+        conn.commit()
+
+    record_action(admin_id, "restore", "dimension", dimension_id, {"hidden": bool(row["hidden"])}, {"hidden": False})
+    return {"status": "restored"}
 
 
 @router.get("/pipeline")
