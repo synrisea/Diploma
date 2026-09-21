@@ -1,6 +1,7 @@
 # Admin Panel — Research & Design
 
-Status: **research + design, not implemented.** Written 2026-09-21.
+Status: **phases 0-4 implemented 2026-09-21** (§10's build order; phase 5's moderation and user
+admin not started). Written 2026-09-21. Results and deviations in §12.
 
 Triggered by a specific need — topic labels need a human in the loop, because automated label
 selection plateaued (see `place-tags-design.md` §6) — but scoped deliberately wider, because
@@ -367,3 +368,77 @@ leaving something broken.
 - **Should hiding a comment trigger an immediate retrain?** Topic data references it until the next
   one. Immediate is correct-but-expensive; deferred is cheap and briefly inconsistent. Probably
   deferred with the staleness surfaced on the dashboard, but it is a real tradeoff.
+
+## 12. Implementation notes (2026-09-21)
+
+Phases 0-4 shipped. Phase 5 (content hiding, user admin) not started.
+
+### What was built
+
+| Phase | Delivered |
+|---|---|
+| 0 | Centroid matching across retrains: ids, status and approved labels carry forward |
+| 1 | `ADMIN_USER_IDS` gate on verified JWTs, `admin_actions` audit table with before/after |
+| 2 | Review queue with keyboard shortcuts, free-text override, reject; badges filtered to approved |
+| 3 | Pipeline status and force retrain |
+| 4 | Overview stats, topic list with reopen, dimension rename/demote, audit view |
+
+### Phase 0 verified against the failure it exists to prevent
+
+The point of the phase was that approvals must survive a retrain. Measured directly: **66/66 topic
+ids carried across a retrain**, none dropped or duplicated. Then, end to end — approved topic 1327
+with the human label "Great Food", forced a retrain through the admin API, and afterwards it was
+still `approved`, still id 1327, still displaying "Great Food" while its *auto-generated* label had
+independently drifted to "Delicious Cuisine".
+
+That drift is the argument for the separate `approved_label` column rather than overwriting `label`:
+21 of 66 auto-labels changed wording between two consecutive runs on identical data, purely from LLM
+nondeterminism. A design that stored the approved text in `label` would have it silently overwritten.
+
+### Security checks that were actually run
+
+The gate was tested for rejection, not just acceptance:
+
+| Request | Result |
+|---|---|
+| No token | 401 |
+| Malformed token | 401 |
+| **Forged `alg: none` token with a valid admin `sub`** | **401** |
+| Valid signed token, non-allowlisted `sub` | 403 |
+| Valid signed token, allowlisted `sub` | 200 |
+
+The `alg: none` case is the one worth calling out — it is the classic JWT algorithm-confusion attack,
+and it is rejected because `jwt.decode` is pinned to `algorithms=["HS256"]`. Optimistic concurrency
+was also verified: approving with a stale `expectedComputedAt` returns 409 rather than writing a
+label onto a cluster that changed underneath.
+
+### Two bugs found by looking at the running UI
+
+Neither would have surfaced from reading the code:
+
+1. **Representative comments were duplicated** — the four centroid-closest comments were often the
+   same sentence repeated. Cause: 22% of this corpus is duplicate text (35 separate reviews reading
+   just "Super"), which is legitimate data, not a scraper fault. `sample_comments()` now returns
+   distinct texts, so a reviewer sees four different examples.
+2. **The dashboard over-reported badge coverage** — "places badged" counted every place appearing in
+   an approved topic (37) rather than those clearing the badge thresholds (13). Fixed by extracting
+   `badge_rules.qualifies_as_badge()` and having both the read path and the dashboard call it, so the
+   rule has one definition rather than two that can drift.
+
+### Deviations from the design
+
+- **Tabs, not nested routes.** §9's IA proposed `/admin/topics/review` style paths. Implemented as a
+  single `/admin` route with client-side tabs — same information architecture, less routing code, and
+  no deep-link requirement exists yet.
+- **Merge is API-only.** `POST /api/admin/topics/merge` works and is audited, but has no UI control
+  yet; merging is currently a curl away rather than a click.
+- **Dimension rename is API-only** for the same reason. Demote has a button.
+- **No `expectedRevision` on reject/reopen**, only on approve. Rejection is not label-specific, so a
+  concurrent retrain cannot make it wrong in the way it can for an approval.
+
+### Operational note
+
+`ADMIN_USER_IDS` is read at process start, so granting admin needs a container recreate, not just a
+restart — §8 predicted this, and it is genuinely mildly annoying in practice. It also means the env
+var must be present at container *creation*; a `docker restart` after editing compose silently keeps
+the old value, which cost some confusion during the build.
