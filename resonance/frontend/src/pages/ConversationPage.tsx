@@ -6,6 +6,8 @@ import { useSendMessage } from '../hooks/useSendMessage';
 import { useCreateConversation } from '../hooks/useCreateConversation';
 import { usePublicProfile } from '../hooks/usePublicProfile';
 import { useBlockUser } from '../hooks/useBlockUser';
+import { useUnblockUser } from '../hooks/useUnblockUser';
+import { useBlockStatus } from '../hooks/useBlockStatus';
 import { useMarkConversationRead } from '../hooks/useMarkConversationRead';
 import { BackLink } from '../components/layout/BackLink';
 
@@ -15,6 +17,8 @@ const primaryButtonClass =
   'rounded-full bg-brand-500 px-4 py-2 text-sm font-medium text-brand-ink transition-colors hover:bg-brand-600 disabled:opacity-50';
 const dangerLinkButtonClass =
   'text-sm font-medium text-sentiment-negative transition-opacity hover:opacity-75 disabled:opacity-50';
+const mutedLinkButtonClass =
+  'text-sm font-medium text-stone-500 transition-colors hover:text-stone-900 disabled:opacity-50';
 
 export function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>();
@@ -29,6 +33,8 @@ export function ConversationPage() {
   const sendMessage = useSendMessage(conversationId ?? '');
   const createConversation = useCreateConversation();
   const blockUser = useBlockUser();
+  const unblockUser = useUnblockUser();
+  const { data: blockStatus } = useBlockStatus(recipientId);
   const markRead = useMarkConversationRead();
   const { data: profile } = usePublicProfile(recipientId);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -88,14 +94,25 @@ export function ConversationPage() {
             </div>
             <p className="font-display text-lg text-stone-900">{profile?.displayName ?? 'Loading…'}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => recipientId && blockUser.mutate(recipientId)}
-            disabled={blockUser.isPending}
-            className={dangerLinkButtonClass}
-          >
-            {blockUser.isPending ? 'Blocking…' : blockUser.isSuccess ? 'Blocked' : 'Block'}
-          </button>
+          {blockStatus?.blockedByMe ? (
+            <button
+              type="button"
+              onClick={() => recipientId && unblockUser.mutate(recipientId)}
+              disabled={unblockUser.isPending}
+              className={mutedLinkButtonClass}
+            >
+              {unblockUser.isPending ? 'Unblocking…' : 'Unblock'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => recipientId && blockUser.mutate(recipientId)}
+              disabled={blockUser.isPending || !blockStatus?.canMessage}
+              className={dangerLinkButtonClass}
+            >
+              {blockUser.isPending ? 'Blocking…' : 'Block'}
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto py-4">
@@ -118,8 +135,20 @@ export function ConversationPage() {
           </div>
         </div>
 
-        {blockUser.isSuccess ? (
-          <p className="border-t border-stone-900/10 pt-4 text-sm text-stone-500">You've blocked this person — they can no longer message you.</p>
+        {blockStatus?.blockedByMe ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-900/10 pt-4">
+            <p className="text-sm text-stone-500">You blocked this account, so you can't message each other.</p>
+            <button
+              type="button"
+              onClick={() => recipientId && unblockUser.mutate(recipientId)}
+              disabled={unblockUser.isPending}
+              className={primaryButtonClass}
+            >
+              {unblockUser.isPending ? 'Unblocking…' : 'Unblock'}
+            </button>
+          </div>
+        ) : blockStatus && !blockStatus.canMessage ? (
+          <p className="border-t border-stone-900/10 pt-4 text-sm text-stone-500">You can't message this account.</p>
         ) : (
           <div className="flex flex-col gap-2 border-t border-stone-900/10 pt-4">
             {errorMessage && <p className="text-sm text-sentiment-negative">{errorMessage}</p>}

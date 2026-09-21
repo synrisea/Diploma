@@ -29,3 +29,8 @@ export interface FriendRequest {
   isIncoming: boolean;
   createdAt: string;
 }
+
+export interface BlockStatus {
+  canMessage: boolean;
+  blockedByMe: boolean;
+}

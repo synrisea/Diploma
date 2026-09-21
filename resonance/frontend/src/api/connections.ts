@@ -1,4 +1,4 @@
-import type { ConnectionMessage, ConversationSummary, FriendRequest, VisitIntent } from '../types/connections';
+import type { BlockStatus, ConnectionMessage, ConversationSummary, FriendRequest, VisitIntent } from '../types/connections';
 
 const CONNECTIONS_API_BASE_URL = import.meta.env.VITE_CONNECTIONS_API_BASE_URL ?? 'http://localhost:5122';
 
@@ -83,6 +83,11 @@ export async function sendMessage(accessToken: string, conversationId: string, b
     body: JSON.stringify({ body }),
   });
   return (await response.json()) as ConnectionMessage;
+}
+
+export async function getBlockStatus(accessToken: string, userId: string): Promise<BlockStatus> {
+  const response = await authedFetch(`/api/connections/blocks/status?userId=${userId}`, accessToken);
+  return (await response.json()) as BlockStatus;
 }
 
 export async function blockUser(accessToken: string, blockedUserId: string): Promise<void> {

@@ -8,6 +8,7 @@ using Resonance.Connections.Api.Contracts;
 using Resonance.Connections.Application;
 using Resonance.Connections.Application.Blocks.CreateBlock;
 using Resonance.Connections.Application.Blocks.DeleteBlock;
+using Resonance.Connections.Application.Blocks.GetBlockStatus;
 using Resonance.Connections.Application.Conversations.CreateConversation;
 using Resonance.Connections.Application.Conversations.GetConversations;
 using Resonance.Connections.Application.Conversations.GetMessages;
@@ -187,6 +188,15 @@ app.MapPost("/api/connections/conversations/{conversationId:guid}/read", async (
 
     await mediator.Send(new MarkConversationReadCommand(conversationId, userId), cancellationToken);
     return Results.NoContent();
+}).RequireAuthorization();
+
+app.MapGet("/api/connections/blocks/status", async (
+    [Microsoft.AspNetCore.Mvc.FromQuery(Name = "userId")] Guid otherUserId, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var callerId)) return Results.Unauthorized();
+
+    var result = await mediator.Send(new GetBlockStatusQuery(callerId, otherUserId), cancellationToken);
+    return Results.Ok(result);
 }).RequireAuthorization();
 
 app.MapPost("/api/connections/blocks", async (
