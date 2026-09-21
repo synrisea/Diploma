@@ -207,7 +207,14 @@ Verified live end-to-end (real registered accounts, real browser sessions, not m
 
 ## Next step
 
-No committed next step. The one gap worth naming: **there are no automated tests anywhere.** Everything
+**Mobile app (React Native)** — designed, not started: `docs/mobile-app-design.md`. Full parity with the
+web app, Expo + NativeWind so the Tailwind markup and design tokens carry over, API layer duplicated into
+the mobile project rather than extracting a shared package. Chosen over a responsive PWA for one reason:
+push notifications, which a PWA cannot do on iOS. The map is the real work — every Leaflet component is
+rewritten on `react-native-maps`, and the heatmap is Android-only unless Google Maps is used on both
+platforms. Phase 2 (map) is the go/no-go point.
+
+Beyond that, no committed next step. The one gap worth naming: **there are no automated tests anywhere.** Everything
 above was verified with throwaway Playwright scripts plus the two eval harnesses
 (`eval_tags.py`, `eval_itinerary.py`), which are the natural skeleton to build on.
 
