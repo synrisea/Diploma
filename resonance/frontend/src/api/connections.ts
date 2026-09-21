@@ -67,6 +67,10 @@ export async function getConversations(accessToken: string): Promise<Conversatio
   return (await response.json()) as ConversationSummary[];
 }
 
+export async function markConversationRead(accessToken: string, conversationId: string): Promise<void> {
+  await authedFetch(`/api/connections/conversations/${conversationId}/read`, accessToken, { method: 'POST' });
+}
+
 export async function getMessages(accessToken: string, conversationId: string): Promise<ConnectionMessage[]> {
   const response = await authedFetch(`/api/connections/conversations/${conversationId}/messages`, accessToken);
   return (await response.json()) as ConnectionMessage[];

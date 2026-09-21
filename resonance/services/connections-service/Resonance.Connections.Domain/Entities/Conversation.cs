@@ -7,6 +7,8 @@ public class Conversation
     public Guid UserBId { get; private set; }
     public Guid? VisitIntentId { get; private set; }
     public DateTime CreatedAt { get; private set; }
+    public DateTime? UserALastReadAt { get; private set; }
+    public DateTime? UserBLastReadAt { get; private set; }
 
     private Conversation() {}
 
@@ -27,4 +29,12 @@ public class Conversation
     public Guid OtherParticipant(Guid userId) => userId == UserAId ? UserBId : UserAId;
 
     public bool Includes(Guid userId) => userId == UserAId || userId == UserBId;
+
+    public DateTime? LastReadBy(Guid userId) => userId == UserAId ? UserALastReadAt : UserBLastReadAt;
+
+    public void MarkRead(Guid userId, DateTime readAt)
+    {
+        if (userId == UserAId) UserALastReadAt = readAt;
+        else if (userId == UserBId) UserBLastReadAt = readAt;
+    }
 }

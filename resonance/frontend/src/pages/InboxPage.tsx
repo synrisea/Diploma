@@ -29,6 +29,7 @@ export function InboxPage() {
               const profile = profiles?.[conversation.otherUserId];
               const displayName = profile?.displayName ?? 'Someone';
               const initial = displayName.charAt(0).toUpperCase();
+              const isUnread = conversation.unreadCount > 0;
 
               return (
                 <li key={conversation.conversationId}>
@@ -45,11 +46,20 @@ export function InboxPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-stone-900">{displayName}</p>
-                      <p className="truncate text-sm text-stone-500">{conversation.lastMessage ?? ''}</p>
+                      <p className={`truncate text-sm ${isUnread ? 'font-medium text-stone-900' : 'text-stone-500'}`}>
+                        {conversation.lastMessage ?? ''}
+                      </p>
                     </div>
-                    {conversation.lastMessageAt && (
-                      <p className="shrink-0 font-mono text-[11px] text-stone-500">{formatRelativeTime(conversation.lastMessageAt)}</p>
-                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {conversation.lastMessageAt && (
+                        <p className="font-mono text-[11px] text-stone-500">{formatRelativeTime(conversation.lastMessageAt)}</p>
+                      )}
+                      {isUnread && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1.5 font-mono text-[10px] font-medium tabular-nums text-brand-ink">
+                          {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </Link>
                 </li>
               );

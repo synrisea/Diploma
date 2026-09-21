@@ -13,6 +13,7 @@ export interface ConversationSummary {
   otherUserId: string;
   lastMessage: string | null;
   lastMessageAt: string | null;
+  unreadCount: number;
 }
 
 export interface ConnectionMessage {

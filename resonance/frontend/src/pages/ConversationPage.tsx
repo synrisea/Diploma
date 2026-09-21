@@ -6,6 +6,7 @@ import { useSendMessage } from '../hooks/useSendMessage';
 import { useCreateConversation } from '../hooks/useCreateConversation';
 import { usePublicProfile } from '../hooks/usePublicProfile';
 import { useBlockUser } from '../hooks/useBlockUser';
+import { useMarkConversationRead } from '../hooks/useMarkConversationRead';
 import { BackLink } from '../components/layout/BackLink';
 
 const inputClass =
@@ -28,12 +29,17 @@ export function ConversationPage() {
   const sendMessage = useSendMessage(conversationId ?? '');
   const createConversation = useCreateConversation();
   const blockUser = useBlockUser();
+  const markRead = useMarkConversationRead();
   const { data: profile } = usePublicProfile(recipientId);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [messages.length]);
+
+  useEffect(() => {
+    if (conversationId && messages.length > 0) markRead.mutate(conversationId);
+  }, [conversationId, messages.length]);
 
   if (!recipientId) {
     return (

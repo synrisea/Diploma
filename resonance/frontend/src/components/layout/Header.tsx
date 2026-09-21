@@ -3,6 +3,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useHeatmap } from '../../heatmap/HeatmapContext';
 import { useDimensions } from '../../hooks/useDimensions';
 import { useFriendRequests } from '../../hooks/useFriendRequests';
+import { useUnreadCount } from '../../hooks/useUnreadCount';
 import { useIsAdmin } from '../../hooks/useAdmin';
 import { HeatmapControl } from '../map/HeatmapControl';
 import { RouteSearchBar } from '../route/RouteSearchBar';
@@ -80,6 +81,7 @@ export function Header() {
   const { data: dimensions = [] } = useDimensions();
   const { data: friendRequests = [] } = useFriendRequests();
   const { isAdmin } = useIsAdmin();
+  const unreadCount = useUnreadCount();
   const incomingRequestCount = friendRequests.filter((r) => r.isIncoming).length;
 
   const onMapRoute = pathname === '/';
@@ -125,10 +127,15 @@ export function Header() {
         {isAuthenticated && (
           <Link
             to="/inbox"
-            aria-label="Inbox"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            aria-label={unreadCount > 0 ? `Inbox, ${unreadCount} unread` : 'Inbox'}
+            className="relative flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition-colors hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
             <InboxIcon />
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 font-mono text-[10px] font-medium tabular-nums text-brand-ink">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </Link>
         )}
 

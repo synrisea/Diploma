@@ -26,15 +26,21 @@ public class GetConversationsHandler : IRequestHandler<GetConversationsQuery, Li
             .OrderByDescending(m => m.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        var lastMessageByConversation = messagesNewestFirst
+        var messagesByConversation = messagesNewestFirst
             .GroupBy(m => m.ConversationId)
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         return conversations
             .Select(c =>
             {
-                var last = lastMessageByConversation.GetValueOrDefault(c.Id);
-                return new ConversationSummaryDto(c.Id, c.OtherParticipant(request.CallerId), last?.Body, last?.CreatedAt);
+                var messages = messagesByConversation.GetValueOrDefault(c.Id) ?? [];
+                var last = messages.FirstOrDefault();
+                var lastRead = c.LastReadBy(request.CallerId);
+                var unread = messages.Count(m =>
+                    m.SenderId != request.CallerId && (lastRead is null || m.CreatedAt > lastRead));
+
+                return new ConversationSummaryDto(
+                    c.Id, c.OtherParticipant(request.CallerId), last?.Body, last?.CreatedAt, unread);
             })
             .OrderByDescending(d => d.LastMessageAt ?? DateTime.MinValue)
             .ToList();

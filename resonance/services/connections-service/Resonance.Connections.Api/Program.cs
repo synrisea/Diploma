@@ -11,6 +11,7 @@ using Resonance.Connections.Application.Blocks.DeleteBlock;
 using Resonance.Connections.Application.Conversations.CreateConversation;
 using Resonance.Connections.Application.Conversations.GetConversations;
 using Resonance.Connections.Application.Conversations.GetMessages;
+using Resonance.Connections.Application.Conversations.MarkRead;
 using Resonance.Connections.Application.Conversations.SendMessage;
 using Resonance.Connections.Application.FriendRequests.AcceptFriendRequest;
 using Resonance.Connections.Application.FriendRequests.DeclineFriendRequest;
@@ -177,6 +178,15 @@ app.MapPost("/api/connections/conversations/{conversationId:guid}/messages", asy
         SendMessageStatus.Blocked => Results.Conflict(new { error = "Messaging isn't available between these two accounts." }),
         _ => Results.Problem(),
     };
+}).RequireAuthorization();
+
+app.MapPost("/api/connections/conversations/{conversationId:guid}/read", async (
+    Guid conversationId, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    await mediator.Send(new MarkConversationReadCommand(conversationId, userId), cancellationToken);
+    return Results.NoContent();
 }).RequireAuthorization();
 
 app.MapPost("/api/connections/blocks", async (
