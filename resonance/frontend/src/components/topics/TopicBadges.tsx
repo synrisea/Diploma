@@ -1,5 +1,11 @@
 import { usePlaceTopics } from '../../hooks/usePlaceTopics';
-import type { Topic } from '../../types/topics';
+import type { TopicSentiment } from '../../types/topics';
+
+const SENTIMENT_STYLES: Record<TopicSentiment, string> = {
+  positive: 'border-sentiment-positive/25 bg-sentiment-positive/10 text-sentiment-positive',
+  negative: 'border-sentiment-negative/25 bg-sentiment-negative/10 text-sentiment-negative',
+  mixed: 'border-sentiment-mixed/25 bg-sentiment-mixed/10 text-sentiment-mixed',
+};
 
 function SignalIcon() {
   return (
@@ -14,29 +20,8 @@ function capitalize(label: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function dedupeTopics(topics: Topic[]): Topic[] {
-  const merged = new Map<string, Topic>();
-
-  for (const topic of topics) {
-    const key = topic.label.trim().toLowerCase();
-    if (key === 'uncategorized' || key === '') continue;
-
-    const existing = merged.get(key);
-    if (existing) {
-      existing.commentCount += topic.commentCount;
-      existing.keywords = Array.from(new Set([...existing.keywords, ...topic.keywords]));
-    } else {
-      merged.set(key, { ...topic });
-    }
-  }
-
-  return Array.from(merged.values());
-}
-
 export function TopicBadges({ placeId }: { placeId: string }) {
-  const { data, isLoading, isError } = usePlaceTopics(placeId);
-  const topics = data ? dedupeTopics(data) : [];
-
+  const { data: topics = [], isLoading, isError } = usePlaceTopics(placeId);
 
   if (isLoading || isError || topics.length === 0) return null;
 
@@ -45,12 +30,14 @@ export function TopicBadges({ placeId }: { placeId: string }) {
       {topics.map((topic) => (
         <span
           key={topic.id}
-          title={`Keywords: ${topic.keywords.join(', ')}`}
-          className="inline-flex items-center gap-1 rounded-full border border-brand-500/25 bg-brand-500/10 px-2.5 py-1 text-xs font-medium text-brand-500"
+          title={`${topic.localCommentCount} of this place's comments · ${topic.keywords.join(', ')}`}
+          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${
+            SENTIMENT_STYLES[topic.sentiment] ?? SENTIMENT_STYLES.mixed
+          }`}
         >
           <SignalIcon />
           {capitalize(topic.label)}
-          <span className="font-mono text-brand-500/60 tabular-nums">· {topic.commentCount}</span>
+          <span className="font-mono tabular-nums opacity-60">· {topic.localCommentCount}</span>
         </span>
       ))}
     </div>
