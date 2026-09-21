@@ -8,13 +8,12 @@ PROMPT_TEMPLATE = (Path(__file__).parent / "prompts" / "refine_label.md").read_t
 MAX_LABEL_WORDS = 4
 
 
-def refine_label(keywords: list[str], sample_comments: list[str] | None = None) -> str | None:
+def generate_label_candidates(keywords: list[str], sample_comments: list[str] | None = None) -> list[str]:
     """Ask a small local LLM to turn a cluster's top keywords (plus a few real
-    comments from the cluster) into a short, human-readable category label.
-    Returns None if the model can't produce something usable, so the caller
-    can fall back to a raw keyword."""
+    comments from the cluster) into short, human-readable category labels. Returns
+    every usable candidate; the caller picks by semantic fit (see pick_label)."""
     if not keywords:
-        return None
+        return []
 
     comments_block = "\n".join(f'- "{c}"' for c in (sample_comments or [])) or "(none)"
     prompt = (
@@ -33,10 +32,6 @@ def refine_label(keywords: list[str], sample_comments: list[str] | None = None) 
         parsed = json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
         labels = [l.strip() for l in parsed.get("labels", []) if isinstance(l, str) and l.strip()]
     except Exception:
-        return None
+        return []
 
-    for label in labels:
-        if len(label.split()) <= MAX_LABEL_WORDS:
-            return label
-
-    return None
+    return [label for label in labels if len(label.split()) <= MAX_LABEL_WORDS]

@@ -40,6 +40,11 @@ def init_db() -> None:
                 computed_at TEXT NOT NULL
             )
         """)
+        topic_columns = {row["name"] for row in conn.execute("PRAGMA table_info(topics)")}
+        if "place_counts" not in topic_columns:
+            conn.execute("ALTER TABLE topics ADD COLUMN place_counts TEXT NOT NULL DEFAULT '{}'")
+        if "sentiment" not in topic_columns:
+            conn.execute("ALTER TABLE topics ADD COLUMN sentiment TEXT NOT NULL DEFAULT 'mixed'")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS dimensions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

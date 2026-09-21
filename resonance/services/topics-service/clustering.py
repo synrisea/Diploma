@@ -1,4 +1,5 @@
 import math
+import os
 import re
 from collections import Counter, defaultdict
 
@@ -30,6 +31,28 @@ STOPWORDS = set(ENGLISH_STOP_WORDS) | RUSSIAN_STOP_WORDS
 
 MIN_DOC_FREQUENCY_RATIO = 0.15
 
+CONTENTLESS_WORDS = {
+    "good", "nice", "great", "super", "awesome", "amazing", "excellent", "perfect",
+    "wonderful", "fantastic", "lovely", "beautiful", "gorgeous", "cool", "fine",
+    "okay", "alright", "best", "better", "love", "loved", "like", "liked", "enjoy",
+    "enjoyed", "recommend", "recommended", "just", "really", "very", "quite",
+    "pretty", "bad", "worst", "terrible", "awful", "poor", "disappointing",
+    "place", "places", "spot", "venue", "thing", "things", "time", "way", "bit", "lot",
+}
+
+
+def first_meaningful_keyword(keywords: list[str]) -> str | None:
+    """Fallback label source when every generated candidate is rejected. Skips pure
+    sentiment words so the fallback can't reintroduce a label like "Terrible"."""
+    return next((word for word in keywords if word not in CONTENTLESS_WORDS), None)
+
+
+def is_contentless(keywords: list[str]) -> bool:
+    """True when a cluster's keywords are pure sentiment with no subject - the LLM
+    will happily invent a specific-sounding label ("Remarkable Service" for a cluster
+    keyworded 'super, great, awesome'), which reads as a finding the data doesn't support."""
+    return not keywords or all(word in CONTENTLESS_WORDS for word in keywords)
+
 def tokenize(text: str) -> list[str]:
     words = re.findall(r"[^\W\d_]+", text.lower())
     return [w for w in words if w not in STOPWORDS and len(w) > 2]
@@ -37,8 +60,16 @@ def tokenize(text: str) -> list[str]:
 def embed_comments(comments: list[str]) -> np.ndarray:
     return model.encode(comments, normalize_embeddings=True)
 
+MIN_CLUSTER_SIZE = int(os.environ.get("MIN_CLUSTER_SIZE", "5"))
+MIN_SAMPLES = int(os.environ.get("MIN_SAMPLES", "2"))
+
 def cluster_embeddings(embeddings: np.ndarray) -> np.ndarray:
-    clusterer = hdbscan.HDBSCAN(min_cluster_size=3, metric="euclidean", cluster_selection_method="leaf")
+    clusterer = hdbscan.HDBSCAN(
+        min_cluster_size=MIN_CLUSTER_SIZE,
+        min_samples=MIN_SAMPLES,
+        metric="euclidean",
+        cluster_selection_method="leaf",
+    )
     return clusterer.fit_predict(embeddings)
 
 def label_clusters(comments: list[str], labels: np.ndarray, top_n : int = 5) -> dict[int, list[str]]:

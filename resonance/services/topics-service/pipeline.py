@@ -8,13 +8,24 @@ import numpy as np
 
 from db import get_connection
 from feedback_client import fetch_comments_after, FETCH_LIMIT
-from clustering import embed_comments, cluster_embeddings, label_clusters, sample_comments, cluster_centroids
-from labeling import refine_label
+from clustering import (
+    embed_comments,
+    cluster_embeddings,
+    label_clusters,
+    sample_comments,
+    cluster_centroids,
+    is_contentless,
+    first_meaningful_keyword,
+)
+from labeling import generate_label_candidates
 from sentiment import classify_sentiments
 
 RETRAIN_THRESHOLD = int(os.environ.get("FEEDBACK_RETRAIN_THRESHOLD", "100"))
 DIMENSION_SIMILARITY_THRESHOLD = float(os.environ.get("DIMENSION_SIMILARITY_THRESHOLD", "0.85"))
 DIMENSION_PROMOTION_MIN_COUNT = int(os.environ.get("DIMENSION_PROMOTION_MIN_COUNT", "10"))
+TOPIC_MERGE_THRESHOLD = float(os.environ.get("TOPIC_MERGE_THRESHOLD", "0.82"))
+LABEL_DUPLICATE_THRESHOLD = float(os.environ.get("LABEL_DUPLICATE_THRESHOLD", "0.9"))
+LABEL_KEYWORD_THRESHOLD = float(os.environ.get("LABEL_KEYWORD_THRESHOLD", "0.4"))
 
 _poll_lock = asyncio.Lock()
 
@@ -92,6 +103,65 @@ def aggregate_sentiment(sentiments: list[str], threshold: float = 0.65, negative
         return "positive"
     return "mixed"
 
+def merge_similar_clusters(clusters: list[dict]) -> list[dict]:
+    """Fold near-identical clusters together by centroid cosine before labeling, so
+    they cost one LLM call instead of several and can't land on the same place as
+    separate badges."""
+    merged: list[dict] = []
+
+    for cluster in sorted(clusters, key=lambda c: c["member_count"], reverse=True):
+        target = None
+        for candidate in merged:
+            if float(np.dot(cluster["centroid"], candidate["centroid"])) >= TOPIC_MERGE_THRESHOLD:
+                target = candidate
+                break
+
+        if target is None:
+            merged.append(cluster)
+            continue
+
+        combined_weight = target["member_count"] + cluster["member_count"]
+        centroid = (
+            target["centroid"] * target["member_count"] + cluster["centroid"] * cluster["member_count"]
+        ) / combined_weight
+        target["centroid"] = centroid / np.linalg.norm(centroid)
+        target["member_count"] = combined_weight
+        target["place_counts"].update(cluster["place_counts"])
+        target["sentiments"].extend(cluster["sentiments"])
+        target["keywords"] = list(dict.fromkeys(target["keywords"] + cluster["keywords"]))
+
+    return merged
+
+
+def pick_label(
+    candidates: list[str],
+    centroid: np.ndarray,
+    keywords: list[str],
+    assigned_embeddings: list[np.ndarray],
+) -> str | None:
+    """Pick the candidate closest to the cluster's own centroid, skipping any that
+    duplicate a label already assigned to another cluster or that describe something
+    the cluster's keywords don't mention - the model otherwise invents plausible
+    labels unrelated to the comments ("Noisy Restaurant" for rude-waiter complaints)."""
+    if not candidates:
+        return None
+
+    embeddings = embed_comments(candidates)
+    keyword_embeddings = embed_comments(keywords) if keywords else []
+    best_label, best_similarity = None, -1.0
+
+    for candidate, embedding in zip(candidates, embeddings):
+        if any(float(np.dot(embedding, other)) >= LABEL_DUPLICATE_THRESHOLD for other in assigned_embeddings):
+            continue
+        if len(keyword_embeddings) and max(float(np.dot(embedding, k)) for k in keyword_embeddings) < LABEL_KEYWORD_THRESHOLD:
+            continue
+        similarity = float(np.dot(embedding, centroid))
+        if similarity > best_similarity:
+            best_label, best_similarity = candidate, similarity
+
+    return best_label
+
+
 async def recluster(total_count: int) -> None:
     with get_connection() as conn:
         rows = conn.execute("SELECT place_id, comment, sentiment FROM comments").fetchall()
@@ -107,7 +177,24 @@ async def recluster(total_count: int) -> None:
     cluster_samples = sample_comments(comments, embeddings, labels)
     centroids = cluster_centroids(embeddings, labels)
 
+    clusters = []
+    for cluster_id, keywords in cluster_keywords.items():
+        centroid = centroids.get(cluster_id)
+        if centroid is None or is_contentless(keywords):
+            continue
+        clusters.append({
+            "keywords": keywords,
+            "samples": cluster_samples.get(cluster_id, []),
+            "centroid": centroid,
+            "member_count": sum(1 for lbl in labels if lbl == cluster_id),
+            "place_counts": Counter(pid for pid, lbl in zip(place_ids, labels) if lbl == cluster_id),
+            "sentiments": [s for s, lbl in zip(sentiments, labels) if lbl == cluster_id],
+        })
+
+    clusters = merge_similar_clusters(clusters)
+
     now = datetime.now(timezone.utc).isoformat()
+    assigned_label_embeddings: list[np.ndarray] = []
 
     with get_connection() as conn:
         existing = [
@@ -116,26 +203,27 @@ async def recluster(total_count: int) -> None:
         ]
 
         conn.execute("DELETE FROM topics")
-        for cluster_id, keywords in cluster_keywords.items():
-            member_place_ids = sorted({pid for pid, lbl in zip(place_ids, labels) if lbl == cluster_id})
-            member_count = sum(1 for lbl in labels if lbl == cluster_id)
-            place_counts = Counter(pid for pid, lbl in zip(place_ids, labels) if lbl == cluster_id)
-            member_sentiments = [s for s, lbl in zip(sentiments, labels) if lbl == cluster_id]
-            sentiment = aggregate_sentiment(member_sentiments)
+        for cluster in clusters:
+            keywords = cluster["keywords"]
+            centroid = cluster["centroid"]
+            member_count = cluster["member_count"]
+            place_counts = cluster["place_counts"]
+            sentiment = aggregate_sentiment(cluster["sentiments"])
 
-            refined = refine_label(keywords, cluster_samples.get(cluster_id, []))
-            if not refined and not keywords:
+            candidates = generate_label_candidates(keywords, cluster["samples"])
+            chosen = pick_label(candidates, centroid, keywords, assigned_label_embeddings)
+            fallback = first_meaningful_keyword(keywords)
+            if not chosen and not fallback:
                 continue
-            label = refined.title() if refined else keywords[0].capitalize()
+            label = chosen.title() if chosen else fallback.capitalize()
+            assigned_label_embeddings.append(embed_comments([label])[0])
 
             conn.execute(
-                "INSERT INTO topics (label, keywords, comment_count, place_ids, computed_at) VALUES (?, ?, ?, ?, ?)",
-                (label, json.dumps(keywords), member_count, json.dumps(member_place_ids), now),
+                """INSERT INTO topics (label, keywords, comment_count, place_ids, place_counts, sentiment, computed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (label, json.dumps(keywords), member_count, json.dumps(sorted(place_counts)),
+                 json.dumps(place_counts), sentiment, now),
             )
-
-            centroid = centroids.get(cluster_id)
-            if centroid is None:
-                continue
 
             best_match, best_similarity = None, -1.0
             for dim in existing:
