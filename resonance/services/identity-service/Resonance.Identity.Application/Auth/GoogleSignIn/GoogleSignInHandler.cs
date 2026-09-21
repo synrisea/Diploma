@@ -53,6 +53,8 @@ public class GoogleSignInHandler : IRequestHandler<GoogleSignInCommand, AuthResp
             _context.ExternalLogins.Add(newExternalLogin);
         }
 
+        await DeviceSessions.RevokePreviousAsync(_context, user.Id, request.DeviceLabel, request.IpAddress, cancellationToken);
+
         var (refreshTokenEntity, rawRefreshToken) = RefreshTokenFactory.Create(user.Id, request.DeviceLabel, request.IpAddress);
         _context.RefreshTokens.Add(refreshTokenEntity);
 

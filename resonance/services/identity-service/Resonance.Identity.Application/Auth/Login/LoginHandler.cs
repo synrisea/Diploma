@@ -25,6 +25,8 @@ public class LoginHandler : IRequestHandler<LoginCommand, AuthResponseDto>
         if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash, user.PasswordHashAlgorithm))
             throw new UnauthorizedAccessException("Invalid email or password.");
         
+          await DeviceSessions.RevokePreviousAsync(_context, user.Id, request.DeviceLabel, request.IpAddress, cancellationToken);
+
           var (refreshTokenEntity, rawRefreshToken) = RefreshTokenFactory.Create(user.Id, request.DeviceLabel, request.IpAddress);
         _context.RefreshTokens.Add(refreshTokenEntity);
 

@@ -95,10 +95,36 @@ static Guid? TryGetSessionId(ClaimsPrincipal user)
 
 static string GoogleHandoffCacheKey(string code) => $"google-handoff:{code}";
 
+static string? DescribeDevice(string userAgent)
+{
+    if (string.IsNullOrWhiteSpace(userAgent)) return null;
+
+    var browser =
+        userAgent.Contains("Edg/") ? "Edge" :
+        userAgent.Contains("OPR/") || userAgent.Contains("Opera") ? "Opera" :
+        userAgent.Contains("Firefox/") ? "Firefox" :
+        userAgent.Contains("Chrome/") ? "Chrome" :
+        userAgent.Contains("Safari/") ? "Safari" : null;
+
+    var platform =
+        userAgent.Contains("Windows") ? "Windows" :
+        userAgent.Contains("Android") ? "Android" :
+        userAgent.Contains("iPhone") || userAgent.Contains("iPad") ? "iOS" :
+        userAgent.Contains("Mac OS X") ? "macOS" :
+        userAgent.Contains("Linux") ? "Linux" : null;
+
+    return (browser, platform) switch
+    {
+        (not null, not null) => $"{browser} on {platform}",
+        (not null, null) => browser,
+        (null, not null) => platform,
+        _ => userAgent[..Math.Min(userAgent.Length, 60)],
+    };
+}
+
 static (string? DeviceLabel, string? IpAddress) GetClientInfo(HttpContext httpContext)
 {
-    var userAgent = httpContext.Request.Headers.UserAgent.ToString();
-    var deviceLabel = string.IsNullOrWhiteSpace(userAgent) ? null : userAgent[..Math.Min(userAgent.Length, 200)];
+    var deviceLabel = DescribeDevice(httpContext.Request.Headers.UserAgent.ToString());
     var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
 
     return (deviceLabel, ipAddress);
