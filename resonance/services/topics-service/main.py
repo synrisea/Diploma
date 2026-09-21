@@ -14,6 +14,7 @@ from db import init_db, get_connection
 from itinerary import plan_itinerary
 from models import PlanItineraryRequest
 from pipeline import poll_and_maybe_recluster
+from summaries import summarise_place
 
 load_dotenv()
 
@@ -99,6 +100,12 @@ def topics_for_place(place_id: str):
 
     relevant.sort(key=lambda t: t["localCommentCount"], reverse=True)
     return relevant[:BADGE_MAX_PER_PLACE]
+
+@app.get("/api/places/{place_id}/summary")
+def place_summary(place_id: str, name: str = "this place"):
+    result = summarise_place(place_id, name)
+    return result or {"summary": None}
+
 
 @app.post("/api/topics/poll-now")
 async def poll_now():

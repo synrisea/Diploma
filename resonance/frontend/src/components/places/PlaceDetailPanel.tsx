@@ -4,6 +4,7 @@ import { CommentList } from '../feedback/CommentList';
 import { CommentForm } from '../feedback/CommentForm';
 import { TopicBadges } from '../topics/TopicBadges';
 import { VisitIntentSection } from './VisitIntentSection';
+import { PlaceSummary } from './PlaceSummary';
 
 interface PlaceDetailPanelProps {
   place: PlaceDto;
@@ -43,6 +44,8 @@ export function PlaceDetailPanel({ place, onBack }: PlaceDetailPanelProps) {
         <div className="mt-3">
           <TopicBadges placeId={place.id} />
         </div>
+
+        <PlaceSummary placeId={place.id} placeName={place.name} />
 
         <VisitIntentSection placeId={place.id} />
 

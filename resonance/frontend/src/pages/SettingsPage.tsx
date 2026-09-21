@@ -76,23 +76,20 @@ function InterestChips({
   );
 }
 
-function ProfileSection() {
-  const { data: profile } = useProfile();
-  const updateProfile = useUpdateProfile();
-  const [displayName, setDisplayName] = useState('');
-  const [bio, setBio] = useState('');
-  const [interests, setInterests] = useState<string[]>([]);
-  const [interestInput, setInterestInput] = useState('');
-  const [preferredLanguage, setPreferredLanguage] = useState('');
+interface ProfileDraft {
+  displayName: string;
+  bio: string;
+  interests: string[];
+  preferredLanguage: string;
+}
 
-  useEffect(() => {
-    if (profile) {
-      setDisplayName(profile.displayName);
-      setBio(profile.bio ?? '');
-      setInterests(profile.interests);
-      setPreferredLanguage(profile.preferredLanguage ?? '');
-    }
-  }, [profile]);
+function ProfileSection({ draft, onChange }: { draft: ProfileDraft; onChange: (patch: Partial<ProfileDraft>) => void }) {
+  const [interestInput, setInterestInput] = useState('');
+  const { displayName, bio, interests, preferredLanguage } = draft;
+  const setDisplayName = (v: string) => onChange({ displayName: v });
+  const setBio = (v: string) => onChange({ bio: v });
+  const setInterests = (v: string[]) => onChange({ interests: v });
+  const setPreferredLanguage = (v: string) => onChange({ preferredLanguage: v });
 
   const addInterest = () => {
     const trimmed = interestInput.trim();
@@ -109,22 +106,10 @@ function ProfileSection() {
     }
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    const trimmed = displayName.trim();
-    if (!trimmed) return;
-    updateProfile.mutate({
-      displayName: trimmed,
-      bio: bio.trim(),
-      interests,
-      preferredLanguage,
-    });
-  };
-
   return (
     <section className="flex flex-col gap-3">
       <SectionHeading>Profile</SectionHeading>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3">
         <label className="flex flex-col gap-1.5 text-sm">
           <span className="font-medium text-stone-700">Display name</span>
           <input
@@ -181,17 +166,7 @@ function ProfileSection() {
           </select>
         </label>
 
-        {updateProfile.isError && (
-          <p className={errorClass}>
-            {updateProfile.error instanceof Error ? updateProfile.error.message : 'Something went wrong.'}
-          </p>
-        )}
-        {updateProfile.isSuccess && <p className="text-sm text-sentiment-positive">Saved.</p>}
-
-        <button type="submit" disabled={updateProfile.isPending} className={primaryButtonClass}>
-          {updateProfile.isPending ? 'Saving…' : 'Save'}
-        </button>
-      </form>
+      </div>
     </section>
   );
 }
@@ -431,8 +406,43 @@ function FriendsSection() {
   );
 }
 
+const EMPTY_DRAFT: ProfileDraft = { displayName: '', bio: '', interests: [], preferredLanguage: '' };
+
+function draftFromProfile(profile: { displayName: string; bio: string | null; interests: string[]; preferredLanguage: string | null } | undefined): ProfileDraft {
+  if (!profile) return EMPTY_DRAFT;
+  return {
+    displayName: profile.displayName,
+    bio: profile.bio ?? '',
+    interests: profile.interests,
+    preferredLanguage: profile.preferredLanguage ?? '',
+  };
+}
+
 export function SettingsPage() {
   const { isAuthenticated } = useAuth();
+  const { data: profile } = useProfile();
+  const updateProfile = useUpdateProfile();
+  const [draft, setDraft] = useState<ProfileDraft>(EMPTY_DRAFT);
+
+  const saved = draftFromProfile(profile);
+
+  useEffect(() => {
+    if (profile) setDraft(draftFromProfile(profile));
+  }, [profile]);
+
+  const isDirty = JSON.stringify(draft) !== JSON.stringify(saved);
+
+  const save = () => {
+    const displayName = draft.displayName.trim();
+    if (!displayName) return;
+    updateProfile.mutate({
+      displayName,
+      bio: draft.bio.trim(),
+      interests: draft.interests,
+      preferredLanguage: draft.preferredLanguage,
+    });
+  };
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   return (
@@ -444,12 +454,30 @@ export function SettingsPage() {
           <h1 className="mt-1 font-display text-3xl text-stone-900">Settings</h1>
         </div>
 
-        <ProfileSection />
+        <ProfileSection draft={draft} onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))} />
         <AvatarSection />
         <EmailSection />
         <SessionsSection />
         <FriendsSection />
       </div>
+
+      {isDirty && (
+        <div className="sticky bottom-0 mt-6 border-t border-stone-900/10 bg-panel/95 py-3 backdrop-blur-md">
+          <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center gap-3">
+            <button type="button" onClick={save} disabled={updateProfile.isPending || !draft.displayName.trim()} className={primaryButtonClass}>
+              {updateProfile.isPending ? 'Saving…' : 'Save changes'}
+            </button>
+            <button type="button" onClick={() => setDraft(saved)} disabled={updateProfile.isPending} className={mutedLinkButtonClass}>
+              Cancel
+            </button>
+            {updateProfile.isError && (
+              <p className="text-sm text-sentiment-negative">
+                {updateProfile.error instanceof Error ? updateProfile.error.message : 'That did not work.'}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

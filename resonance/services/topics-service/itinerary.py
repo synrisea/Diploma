@@ -67,12 +67,10 @@ def _place_cards(place_ids: list[str], catalog: dict[str, dict], topics: dict[st
         line = f'{index}. {place["name"]} ({place.get("categoryName") or "place"})'
         access = place.get("wheelchair")
         if access:
-            line += f"
-   wheelchair: {access}"
+            line += f"\n   wheelchair: {access}"
         hours = place.get("openingHours")
         if hours:
-            line += f"
-   hours: {hours[:60]}"
+            line += f"\n   hours: {hours[:60]}"
         themes = topics.get(place_id, [])
         if themes:
             rendered = ", ".join(
