@@ -10,5 +10,6 @@ public interface IApplicationDbContext
     DbSet<Message> Messages { get; }
     DbSet<Block> Blocks { get; }
     DbSet<FriendRequest> FriendRequests { get; }
+    DbSet<DeviceToken> DeviceTokens { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

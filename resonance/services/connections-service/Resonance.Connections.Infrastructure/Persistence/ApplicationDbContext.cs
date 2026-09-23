@@ -15,6 +15,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<Block> Blocks => Set<Block>();
     public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
