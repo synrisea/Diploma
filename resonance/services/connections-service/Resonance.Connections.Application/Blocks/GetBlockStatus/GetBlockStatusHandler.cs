@@ -13,9 +13,6 @@ public class GetBlockStatusHandler : IRequestHandler<GetBlockStatusQuery, BlockS
         _context = context;
     }
 
-    /// <summary>Reports whether the caller blocked the other person, but never whether the
-    /// other person blocked the caller - that case is reported only as "cannot message",
-    /// so being blocked is indistinguishable from any other reason messaging is closed.</summary>
     public async Task<BlockStatusDto> Handle(GetBlockStatusQuery request, CancellationToken cancellationToken)
     {
         var blockedByMe = await _context.Blocks.AnyAsync(

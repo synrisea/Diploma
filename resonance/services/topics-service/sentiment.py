@@ -42,6 +42,4 @@ def _classify_batch(batch: list[str]) -> list[str]:
     except Exception:
         labels = []
 
-    # Pad/validate to exactly match input length so one bad response can't
-    # desync sentiment values from comment ids in the caller's zip().
     return [labels[i] if i < len(labels) and labels[i] in VALID_LABELS else "mixed" for i in range(len(batch))]

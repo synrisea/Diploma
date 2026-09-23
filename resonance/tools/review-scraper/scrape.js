@@ -49,26 +49,17 @@ async function acceptCookiesIfPresent(page) {
       await page.waitForTimeout(500);
     }
   } catch {
-    // no consent dialog, fine
   }
 }
 
 async function dismissSignInPromptIfPresent(page) {
-  // Google periodically shows an interstitial nagging anonymous users to
-  // sign in ("Sign-in to get the best of Google Maps"). It's a modal
-  // overlay that intercepts clicks on everything underneath it (review
-  // cards, "See more" buttons), so if left up it silently breaks whatever
-  // interaction was attempted next.
   try {
-    // Google's own markup for this doesn't reliably expose "Dismiss" as an
-    // accessible role (link/button) - match on visible text instead.
     const dismiss = page.getByText('Dismiss', { exact: true }).first();
     if (await dismiss.isVisible({ timeout: 500 })) {
       await dismiss.click({ timeout: 1000 });
       await page.waitForTimeout(300);
     }
   } catch {
-    // no sign-in prompt, fine
   }
 }
 
@@ -180,11 +171,6 @@ async function scrapeReviewsForPlace(page, place) {
     await dismissSignInPromptIfPresent(page);
   }
 
-  // Clicking a "See more" button removes it from the DOM (the text expands
-  // in place), which shifts every subsequent index in a live-queried list -
-  // an indexed `for` loop over `.nth(i)` skips roughly half the buttons as a
-  // result. Always re-querying and clicking whichever is currently first
-  // is self-correcting regardless of how the DOM shifts after each click.
   const moreButtons = page.locator('button[aria-label="See more"]');
   for (let guard = 0; guard < 500; guard++) {
     await dismissSignInPromptIfPresent(page);
@@ -249,7 +235,6 @@ async function main() {
   const progress = loadProgress();
   let places;
   if (explicitIds) {
-    // --ids= re-scrapes regardless of prior progress, for targeted re-checks.
     places = candidates.filter((p) => explicitIds.has(p.id));
   } else {
     const doneIds = new Set(progress.done);

@@ -4,7 +4,7 @@ public class Category
 {
     public Guid Id { get; private set; }
     public string Name { get; private set; } = null!;
-    public string? OsmTagMapping { get; private set; } // e.g. "amenity=cafe"
+    public string? OsmTagMapping { get; private set; }
 
     private Category() { }
 

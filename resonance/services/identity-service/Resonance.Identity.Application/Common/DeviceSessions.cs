@@ -4,9 +4,6 @@ namespace Resonance.Identity.Application.Common;
 
 public static class DeviceSessions
 {
-    /// <summary>Signing in again from the same device replaces that device's session rather
-    /// than adding another. Without this every sign-in left its old refresh token alive, so
-    /// the session list grew one row per sign-in and each old row stayed a usable way in.</summary>
     public static async Task RevokePreviousAsync(
         IApplicationDbContext context, Guid userId, string? deviceLabel, string? ipAddress, CancellationToken cancellationToken)
     {
