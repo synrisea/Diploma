@@ -25,6 +25,8 @@ using Resonance.Identity.Application.Users.GetByIds;
 using Resonance.Identity.Application.Users.Search;
 using Resonance.Identity.Application.Profile.DeleteAvatar;
 using Resonance.Identity.Application.EmailChange.StartEmailChange;
+using Resonance.Identity.Application.PasswordChange.ConfirmPasswordChange;
+using Resonance.Identity.Application.PasswordChange.StartPasswordChange;
 using Resonance.Identity.Application.EmailChange.ConfirmEmailChange;
 using Resonance.Identity.Infrastructure;
 using Scalar.AspNetCore;
@@ -331,6 +333,48 @@ app.MapPost("/api/identity/me/email", async (
         return Results.BadRequest(new { error = ex.Message });
     }
 }).RequireAuthorization();
+
+app.MapPost("/api/identity/me/password", async (
+    ChangePasswordRequest request, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId))
+        return Results.Unauthorized();
+
+    try
+    {
+        await mediator.Send(new StartPasswordChangeCommand(userId, request.CurrentPassword, request.NewPassword), cancellationToken);
+        return Results.NoContent();
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: 401);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).RequireAuthorization();
+
+app.MapGet("/api/identity/password-change/confirm", async (
+    string token, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var replacedExistingPassword = await mediator.Send(new ConfirmPasswordChangeCommand(token), cancellationToken);
+        var message = replacedExistingPassword
+            ? "Password updated. You have been signed out everywhere — sign in again with your new password."
+            : "Password set. You can now sign in with your email and this password.";
+        return Results.Content($"<html><body><p>{message}</p></body></html>", "text/html");
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Content($"<html><body><p>{ex.Message}</p></body></html>", "text/html", statusCode: 400);
+    }
+});
 
 app.MapGet("/api/identity/email-change/confirm", async (
     string token, IMediator mediator, CancellationToken cancellationToken) =>

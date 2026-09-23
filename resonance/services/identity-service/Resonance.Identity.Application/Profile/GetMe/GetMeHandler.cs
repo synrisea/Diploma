@@ -20,6 +20,6 @@ public class GetMeHandler : IRequestHandler<GetMeQuery, UserProfileDto>
 
         return new UserProfileDto(
             user.Id, user.Email, user.DisplayName, user.AvatarUrl, user.PreferencesJson, user.CreatedAt,
-            user.Bio, user.Interests, user.PreferredLanguage);
+            user.Bio, user.Interests, user.PreferredLanguage, user.HasPassword);
     }
 }

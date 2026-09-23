@@ -9,4 +9,5 @@ public record UserProfileDto(
     DateTime CreatedAt,
     string? Bio,
     List<string> Interests,
-    string? PreferredLanguage);
+    string? PreferredLanguage,
+    bool HasPassword);
