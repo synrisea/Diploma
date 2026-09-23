@@ -70,6 +70,18 @@ export async function startEmailChange(accessToken: string, newEmail: string): P
   });
 }
 
+export async function startPasswordChange(
+  accessToken: string,
+  currentPassword: string | null,
+  newPassword: string,
+): Promise<void> {
+  await authedFetch('/api/identity/me/password', accessToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
 export async function getSessions(accessToken: string): Promise<Session[]> {
   const response = await authedFetch('/api/identity/sessions', accessToken);
   return (await response.json()) as Session[];

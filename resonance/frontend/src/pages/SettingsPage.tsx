@@ -6,6 +6,7 @@ import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import { useUploadAvatar } from '../hooks/useUploadAvatar';
 import { useDeleteAvatar } from '../hooks/useDeleteAvatar';
 import { useStartEmailChange } from '../hooks/useStartEmailChange';
+import { useStartPasswordChange } from '../hooks/useStartPasswordChange';
 import { useSessions } from '../hooks/useSessions';
 import { useRevokeSession } from '../hooks/useRevokeSession';
 import { useRevokeOtherSessions } from '../hooks/useRevokeOtherSessions';
@@ -313,6 +314,135 @@ function EmailSection() {
   );
 }
 
+function PasswordSection() {
+  const { data: profile } = useProfile();
+  const startPasswordChange = useStartPasswordChange();
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const hasPassword = profile?.hasPassword ?? true;
+
+  const reset = () => {
+    setIsEditing(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setValidationError(null);
+    startPasswordChange.reset();
+  };
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    setValidationError(null);
+
+    if (newPassword.length < 8) {
+      setValidationError('Password must be at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setValidationError('Those passwords do not match.');
+      return;
+    }
+
+    startPasswordChange.mutate({
+      currentPassword: hasPassword ? currentPassword : null,
+      newPassword,
+    });
+  };
+
+  return (
+    <section className="flex flex-col gap-3 border-t border-stone-900/10 pt-4">
+      <SectionHeading>Password</SectionHeading>
+
+      {startPasswordChange.isSuccess ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-stone-600">
+            Check <span className="font-medium text-stone-900">{profile?.email}</span> — the{' '}
+            {hasPassword ? 'change' : 'new password'} applies once you click the link in that email.
+          </p>
+          <button type="button" onClick={reset} className={linkButtonClass}>
+            Done
+          </button>
+        </div>
+      ) : isEditing ? (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {hasPassword && (
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-stone-700">Current password</span>
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+          )}
+
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-stone-700">New password</span>
+            <input
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className={inputClass}
+            />
+            <span className="font-mono text-[11px] text-stone-500">Minimum 8 characters</span>
+          </label>
+
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-stone-700">Confirm new password</span>
+            <input
+              type="password"
+              required
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className={inputClass}
+            />
+          </label>
+
+          {(validationError || startPasswordChange.isError) && (
+            <p className={errorClass}>
+              {validationError ??
+                (startPasswordChange.error instanceof Error
+                  ? startPasswordChange.error.message
+                  : 'Something went wrong.')}
+            </p>
+          )}
+
+          <div className="flex gap-4">
+            <button type="submit" disabled={startPasswordChange.isPending} className={primaryButtonClass}>
+              {startPasswordChange.isPending ? 'Sending…' : 'Send confirmation'}
+            </button>
+            <button type="button" onClick={reset} className={mutedLinkButtonClass}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-stone-600">
+            {hasPassword
+              ? 'Your account has a password.'
+              : "You signed up with Google, so there's no password on this account yet."}
+          </p>
+          <button type="button" onClick={() => setIsEditing(true)} className={linkButtonClass}>
+            {hasPassword ? 'Change password' : 'Set a password'}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function SessionsSection() {
   const { data: sessions = [] } = useSessions();
   const revokeSession = useRevokeSession();
@@ -457,6 +587,7 @@ export function SettingsPage() {
         <ProfileSection draft={draft} onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))} />
         <AvatarSection />
         <EmailSection />
+        <PasswordSection />
         <SessionsSection />
         <FriendsSection />
       </div>

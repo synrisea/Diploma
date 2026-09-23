@@ -8,6 +8,7 @@ export interface UserProfile {
   bio: string | null;
   interests: string[];
   preferredLanguage: string | null;
+  hasPassword: boolean;
 }
 
 export interface PublicProfile {
