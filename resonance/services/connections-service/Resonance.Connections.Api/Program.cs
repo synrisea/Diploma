@@ -14,6 +14,8 @@ using Resonance.Connections.Application.Conversations.GetConversations;
 using Resonance.Connections.Application.Conversations.GetMessages;
 using Resonance.Connections.Application.Conversations.MarkRead;
 using Resonance.Connections.Application.Conversations.SendMessage;
+using Resonance.Connections.Application.Devices.RegisterDevice;
+using Resonance.Connections.Application.Devices.UnregisterDevice;
 using Resonance.Connections.Application.FriendRequests.AcceptFriendRequest;
 using Resonance.Connections.Application.FriendRequests.DeclineFriendRequest;
 using Resonance.Connections.Application.FriendRequests.GetFriendRequests;
@@ -295,6 +297,25 @@ app.MapGet("/api/connections/friends", async (
 
     var result = await mediator.Send(new GetFriendsQuery(userId), cancellationToken);
     return Results.Ok(result);
+}).RequireAuthorization();
+
+app.MapPut("/api/connections/devices", async (
+    RegisterDeviceRequest request, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(request.Token)) return Results.BadRequest(new { error = "A push token is required." });
+
+    await mediator.Send(new RegisterDeviceCommand(userId, request.Token, request.Platform ?? string.Empty), cancellationToken);
+    return Results.NoContent();
+}).RequireAuthorization();
+
+app.MapDelete("/api/connections/devices/{token}", async (
+    string token, ClaimsPrincipal user, IMediator mediator, CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(user, out var userId)) return Results.Unauthorized();
+
+    await mediator.Send(new UnregisterDeviceCommand(userId, token), cancellationToken);
+    return Results.NoContent();
 }).RequireAuthorization();
 
 app.Run();

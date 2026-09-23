@@ -9,10 +9,12 @@ namespace Resonance.Connections.Application.Conversations.SendMessage;
 public class SendMessageHandler : IRequestHandler<SendMessageCommand, SendMessageOutcome>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IPushSender _pushSender;
 
-    public SendMessageHandler(IApplicationDbContext context)
+    public SendMessageHandler(IApplicationDbContext context, IPushSender pushSender)
     {
         _context = context;
+        _pushSender = pushSender;
     }
 
     public async Task<SendMessageOutcome> Handle(SendMessageCommand request, CancellationToken cancellationToken)
@@ -33,6 +35,9 @@ public class SendMessageHandler : IRequestHandler<SendMessageCommand, SendMessag
         var message = new Message(Guid.NewGuid(), request.ConversationId, request.SenderId, request.Body);
         _context.Messages.Add(message);
         await _context.SaveChangesAsync(cancellationToken);
+
+        await MessagePushNotifier.NotifyRecipientAsync(
+            _context, _pushSender, conversation.Id, request.SenderId, otherUserId, message.Body, cancellationToken);
 
         var dto = new MessageDto(message.Id, message.SenderId, message.Body, message.CreatedAt);
         return new SendMessageOutcome(SendMessageStatus.Sent, dto);

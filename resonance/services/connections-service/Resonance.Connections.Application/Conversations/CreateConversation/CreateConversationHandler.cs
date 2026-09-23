@@ -8,10 +8,12 @@ namespace Resonance.Connections.Application.Conversations.CreateConversation;
 public class CreateConversationHandler : IRequestHandler<CreateConversationCommand, Guid>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IPushSender _pushSender;
 
-    public CreateConversationHandler(IApplicationDbContext context)
+    public CreateConversationHandler(IApplicationDbContext context, IPushSender pushSender)
     {
         _context = context;
+        _pushSender = pushSender;
     }
 
     public async Task<Guid> Handle(CreateConversationCommand request, CancellationToken cancellationToken)
@@ -38,6 +40,10 @@ public class CreateConversationHandler : IRequestHandler<CreateConversationComma
         _context.Messages.Add(message);
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        await MessagePushNotifier.NotifyRecipientAsync(
+            _context, _pushSender, conversation.Id, request.CallerId, request.RecipientId, message.Body, cancellationToken);
+
         return conversation.Id;
     }
 }
