@@ -260,6 +260,20 @@ link confirms → new password logs in, old one 401, link replay rejected, prior
 Still missing, deliberately: there is no unauthenticated "forgot password" flow. Both paths above require
 being signed in.
 
+## Deployment — designed, not started (2026-09-23)
+
+`docs/deployment-design.md`. Self-hosted on this laptop, no cloud. The public IP is routable (not CGNAT),
+so a real domain with Let's Encrypt is achievable, which is also what unblocks Google sign-in on the phone.
+Shape: one Caddy reverse proxy on 80/443 in front of everything, same-origin, which removes CORS, removes the
+five build-time frontend origins, and doubles as the long-deferred API gateway. Two routing collisions to
+respect: `/api/places/*/summary` is topics-service while `/api/places` is places-service, and
+`/api/admin/comments` is feedback-service while the rest of `/api/admin` is topics-service.
+
+Biggest gaps found: the frontend container still runs `npm run dev`; there is no production `appsettings`
+(every setting lives only in the Development file while compose sets `ASPNETCORE_ENVIRONMENT=Development`);
+the JWT secret is committed and shared by four services; and the mobile app cannot be built for distribution
+yet — no JDK or Android SDK on this machine, and iOS needs a Mac plus a paid Apple account.
+
 ## Next step
 
 Run the mobile app on a real device and fix what only a device shows (keyboard behaviour in the chat
