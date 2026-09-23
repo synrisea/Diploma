@@ -46,6 +46,7 @@ public class GoogleSignInHandler : IRequestHandler<GoogleSignInCommand, AuthResp
             {
                 var (passwordHash, algorithm) = _passwordHasher.HashNew(Convert.ToHexString(RandomNumberGenerator.GetBytes(32)));
                 user = new User(Guid.NewGuid(), normalizedEmail, passwordHash, algorithm, request.DisplayName);
+                user.MarkPasswordNotSet();
                 _context.Users.Add(user);
             }
 

@@ -8,6 +8,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<EmailChangeRequest> EmailChangeRequests => Set<EmailChangeRequest>();
+    public DbSet<PasswordChangeRequest> PasswordChangeRequests => Set<PasswordChangeRequest>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ExternalLogin> ExternalLogins => Set<ExternalLogin>();
 

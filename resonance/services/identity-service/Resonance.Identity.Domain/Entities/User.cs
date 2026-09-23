@@ -6,6 +6,7 @@ public class User
     public string Email { get; private set;} = null!;
     public string PasswordHash { get; private set; } = null!;
     public PasswordHashAlgorithm PasswordHashAlgorithm { get; private set;}
+    public bool HasPassword { get; private set; }
     public string DisplayName { get; private set; } = null!;
     public string? PreferencesJson {get; private set;}
     public DateTime CreatedAt { get; private set; }
@@ -29,8 +30,21 @@ public class User
         Email = email.Trim().ToLowerInvariant();
         PasswordHash = passwordHash;
         PasswordHashAlgorithm = passwordHashAlgorithm;
+        HasPassword = true;
         DisplayName = displayName;
         CreatedAt = DateTime.UtcNow;
+    }
+
+    public void MarkPasswordNotSet() => HasPassword = false;
+
+    public void SetPassword(string passwordHash, PasswordHashAlgorithm passwordHashAlgorithm)
+    {
+        if (string.IsNullOrWhiteSpace(passwordHash))
+            throw new ArgumentException("Password is required.", nameof(passwordHash));
+
+        PasswordHash = passwordHash;
+        PasswordHashAlgorithm = passwordHashAlgorithm;
+        HasPassword = true;
     }
 
     public void UpdateDisplayName(string displayName)
