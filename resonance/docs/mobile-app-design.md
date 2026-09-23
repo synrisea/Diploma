@@ -1,6 +1,8 @@
 # Mobile App (React Native) — Design Doc
 
-Status: **design, not implemented.** Written 2026-09-22.
+Status: **implemented 2026-09-22** in `mobile/` (all phases 0–7; see `mobile/README.md` to run it).
+Written 2026-09-22 as a design; the sections below are kept as the record of what was decided and why.
+Where the build resolved an open question, §12 says how.
 
 Goal as set: a React Native app with **full parity** to the web app — same features, same UI — sharing the
 existing backend unchanged. The API layer is **duplicated** into the mobile project rather than extracted
@@ -220,14 +222,22 @@ address changes with the network.
 Worth stating plainly: **there are still no automated tests in this project**, and a second frontend
 doubles the surface that is verified only by hand.
 
-## 12. Open questions
+## 12. Open questions — resolved during the build
 
-- **iOS heatmap** (§5) — Google provider on both platforms, or Android-only heatmap?
-- **Is the admin panel wanted on mobile at all?** Full parity was the stated goal, but reviewing topic
-  labels on a phone is worse than on a laptop in every respect. Phase 7 is late enough to drop it without
-  waste if the answer turns out to be no.
-- **Offline behaviour.** Currently undefined. A map app with no signal is a plausible real scenario;
-  TanStack Query can persist its cache, but this is a feature to decide on, not a default.
-- **Expo Go limits.** Push notifications and custom URL schemes may need a development build rather than
-  plain Expo Go, which reintroduces the native toolchain this stack was chosen to avoid. Verify before
-  phase 5, not during it.
+- **iOS heatmap** (§5) — neither option as posed. Google Maps is used on Android (bundled in Expo Go) and
+  on iOS only when `EXPO_PUBLIC_GOOGLE_MAPS_IOS_KEY` is set; the native `Heatmap` renders there as two
+  signed layers (positive/negative, mixed for single-sentiment dimensions). On Apple Maps the same points
+  render as translucent `Circle`s sized and tinted by weight and sign — a weaker picture, but the feature
+  is never disabled.
+- **Admin on mobile** — built, as the parity goal asked. Keyboard shortcuts became full-width tap targets,
+  the tab strip scrolls horizontally, and the confirm-twice buttons say "Tap again".
+- **Offline behaviour** — still undefined, deliberately. Nothing was added.
+- **Expo Go limits** — verified: email/password auth, the map and every screen run in Expo Go. Google
+  sign-in also works in Expo Go because the identity service now accepts an `exp://` return URL (§8
+  became a small backend change: `/api/auth/google/start?returnTo=` with an allow-listed scheme). Remote
+  push does need a development build and an EAS project id; without them the app skips registration
+  silently and everything else works.
+
+Two things the design did not anticipate: the `.app-grain` texture is a generated 120px noise PNG under
+`assets/` because `react-native-svg` cannot render `feTurbulence`; and `Intl.RelativeTimeFormat` is not
+guaranteed on Hermes, so `formatRelativeTime` carries an English fallback.

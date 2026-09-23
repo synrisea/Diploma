@@ -1,6 +1,6 @@
 # Resonance — Progress & Roadmap
 
-Last updated: 2026-09-22. This file is the source of truth for "what's done and what's next" — update it as things change instead of relying on memory.
+Last updated: 2026-09-23. This file is the source of truth for "what's done and what's next" — update it as things change instead of relying on memory.
 
 ## Architecture at a glance
 
@@ -12,6 +12,7 @@ Last updated: 2026-09-22. This file is the source of truth for "what's done and 
 | `connections-service` | ASP.NET Core | 5122 | Visit intents, chat (conversations/messages), blocks, and friend requests/friends |
 | `topics-service` | Python, FastAPI | 8010 (container listens on 8001 internally — host port moved off 8001 due to a persistent, unexplained conflict with Docker Desktop's own backend process on this machine) | AI topic discovery from comments, sentiment/dimension scoring, LLM route planning, place summaries, and the admin API. Runs on CPU by default; GPU is opt-in — see below. |
 | `frontend` | React, Vite, Leaflet | 5173 | The app. Lives at `frontend/` directly (moved out of `frontend/resonance-web/`). Has a `Dockerfile` and a `docker-compose.yml` entry; still fine to run locally via `npm run dev` too. |
+| `mobile` | Expo (React Native), Expo Router, NativeWind, react-native-maps | — | The same app for phones, run through Expo Go over Wi-Fi. `mobile/README.md` has the setup. |
 
 No API gateway yet (deliberate — see "Deferred, on purpose"). The frontend calls each service directly.
 
@@ -205,14 +206,65 @@ not just acceptance — including a forged `alg: none` token carrying a valid ad
 
 Verified live end-to-end (real registered accounts, real browser sessions, not mocked): matching visit intents surfacing each other, chat + polling delivery, Block disabling further messaging on both sides, friend search → request → accept, and friend-to-friend direct messaging with no shared intent involved.
 
+## Mobile app — built (2026-09-22)
+
+`mobile/`, per `docs/mobile-app-design.md` (all phases 0–7 of its build order). Expo SDK 57 managed, Expo
+Router, NativeWind v4 over the same design tokens, TanStack Query with the 41 hooks and the API layer
+duplicated from `frontend/src` (deliberate — see the design doc §2). Every screen rebuilt in RN primitives:
+Map (bottom sheet in place of the sidebar, four-tab bar in place of the header icons), place detail with
+tags/summary/comments/visit intents, login/register + Google, settings with the native image picker, inbox,
+conversation (inverted list), friends (debounced search), plans, public profile, admin. Map layer rewritten
+on `react-native-maps`: `supercluster` clustering with the same tier sizes, category pins with the pulse
+ring on selection, two-layer signed heatmap (Google) with a circle fallback (Apple), animated leg-by-leg
+route polyline, numbered stops.
+
+Two backend changes, both small: identity-service `/api/auth/google/start?returnTo=` (allow-listed
+`resonance://` and `exp://` schemes, stored inside the protected OAuth state) so the Google callback lands
+back in the app; connections-service `DeviceTokens` table + `PUT/DELETE /api/connections/devices`, and both
+message-writing handlers now send an Expo push to the recipient's devices after persisting (block checks run
+before, so a blocked sender never triggers one). Migration `AddDeviceTokens` applied to the dev database.
+
+Verified: `tsc` clean, `expo export --platform android` bundles through Metro/NativeWind/Hermes,
+`expo-doctor` 21/21, both services build. **Not yet run on a phone** — that is the next session's first job
+(Expo Go, `EXPO_PUBLIC_API_HOST` = this machine's LAN IP, firewall open on the five service ports).
+Remote push needs a development build and `eas init`; the app degrades silently without them.
+
+## Passwords for Google accounts + password change (2026-09-23)
+
+Google sign-in creates a user with a random, unknowable password hash, so those accounts could never use
+email/password login — which blocks them on mobile, where Google sign-in needs HTTPS. Both gaps are now
+closed by one email-confirmed flow in identity-service:
+
+- `User.HasPassword` distinguishes a real password from the random placeholder. `GoogleSignInHandler`
+  marks newly created users `false`; the migration backfills `true` for everyone else, and `false` for
+  rows that have an `ExternalLogins` entry. Caveat on that backfill: someone who registered normally and
+  *later* linked Google is also marked passwordless, so they can set a new password without knowing the
+  old one. Email confirmation still gates it, and it only affects pre-existing rows.
+- `POST /api/identity/me/password` (authenticated) takes `{ currentPassword, newPassword }`. The current
+  password is required and verified only when `HasPassword` is true, so Google users set one without it.
+  The new password is hashed immediately and parked in a `PasswordChangeRequest` (SHA-256 token hash,
+  2-hour expiry, one pending request per user); nothing on the user changes yet.
+- `GET /api/identity/password-change/confirm?token=` applies it, deletes the request (single use), and —
+  only when replacing an existing password — revokes every refresh token, so a change signs you out
+  everywhere. Setting a first password does not, since there is no prior credential to protect.
+- `GET /api/identity/me` now returns `hasPassword`, which both clients use to choose between
+  "Set a password" and "Change password" in a new Settings section.
+
+**In dev nothing is actually emailed** — `Email:UseConsoleSender` is on, so the confirmation link is
+printed in the identity-api container logs (`docker logs resonance-identity-api`).
+
+Verified against the running service: wrong current password 401, short password 400, correct change 204 →
+link confirms → new password logs in, old one 401, link replay rejected, prior sessions revoked; and on a
+`HasPassword=false` account, set-with-no-current 204 → confirm → login works.
+
+Still missing, deliberately: there is no unauthenticated "forgot password" flow. Both paths above require
+being signed in.
+
 ## Next step
 
-**Mobile app (React Native)** — designed, not started: `docs/mobile-app-design.md`. Full parity with the
-web app, Expo + NativeWind so the Tailwind markup and design tokens carry over, API layer duplicated into
-the mobile project rather than extracting a shared package. Chosen over a responsive PWA for one reason:
-push notifications, which a PWA cannot do on iOS. The map is the real work — every Leaflet component is
-rewritten on `react-native-maps`, and the heatmap is Android-only unless Google Maps is used on both
-platforms. Phase 2 (map) is the go/no-go point.
+Run the mobile app on a real device and fix what only a device shows (keyboard behaviour in the chat
+composer, bottom-sheet + tab-bar interplay, marker performance at full zoom-out, Apple Maps circle heatmap
+density). Then a development build to exercise push end to end.
 
 Beyond that, no committed next step. The one gap worth naming: **there are no automated tests anywhere.** Everything
 above was verified with throwaway Playwright scripts plus the two eval harnesses
