@@ -95,6 +95,18 @@ static Guid? TryGetSessionId(ClaimsPrincipal user)
 
 static string GoogleHandoffCacheKey(string code) => $"google-handoff:{code}";
 
+static string? SanitizeMobileReturnTo(string? returnTo, IConfiguration configuration)
+{
+    if (string.IsNullOrWhiteSpace(returnTo)) return null;
+    if (!Uri.TryCreate(returnTo, UriKind.Absolute, out var uri)) return null;
+    if (returnTo.Contains('?') || returnTo.Contains('#') || returnTo.Contains('|')) return null;
+
+    var allowedSchemes = (configuration["Identity:MobileReturnSchemes"] ?? "resonance,exp")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    return allowedSchemes.Contains(uri.Scheme, StringComparer.OrdinalIgnoreCase) ? returnTo : null;
+}
+
 static string? DescribeDevice(string userAgent)
 {
     if (string.IsNullOrWhiteSpace(userAgent)) return null;
@@ -337,10 +349,12 @@ app.MapGet("/api/identity/email-change/confirm", async (
     }
 });
 
-app.MapGet("/api/auth/google/start", (IDataProtectionProvider dataProtectionProvider, IGoogleOAuthClient googleClient) =>
+app.MapGet("/api/auth/google/start", (string? returnTo, IDataProtectionProvider dataProtectionProvider, IGoogleOAuthClient googleClient) =>
 {
     var protector = dataProtectionProvider.CreateProtector("GoogleOAuthState");
-    var state = protector.Protect(DateTime.UtcNow.ToString("O"));
+    var mobileReturnTo = SanitizeMobileReturnTo(returnTo, builder.Configuration);
+    var payload = mobileReturnTo is null ? DateTime.UtcNow.ToString("O") : $"{DateTime.UtcNow:O}|{mobileReturnTo}";
+    var state = protector.Protect(payload);
     return Results.Redirect(googleClient.BuildAuthorizationUrl(state));
 });
 
@@ -351,16 +365,23 @@ app.MapGet("/api/auth/google/callback", async (
     var frontendBaseUrl = builder.Configuration["Identity:FrontendBaseUrl"]
         ?? throw new InvalidOperationException("Identity:FrontendBaseUrl is not configured.");
     var protector = dataProtectionProvider.CreateProtector("GoogleOAuthState");
+    var callbackUrl = $"{frontendBaseUrl}/auth/callback";
 
     try
     {
-        var issuedAt = DateTime.Parse(protector.Unprotect(state), null, System.Globalization.DateTimeStyles.RoundtripKind);
+        var payload = protector.Unprotect(state);
+        var separator = payload.IndexOf('|');
+        var issuedAtText = separator < 0 ? payload : payload[..separator];
+        var mobileReturnTo = separator < 0 ? null : SanitizeMobileReturnTo(payload[(separator + 1)..], builder.Configuration);
+        if (mobileReturnTo is not null) callbackUrl = mobileReturnTo;
+
+        var issuedAt = DateTime.Parse(issuedAtText, null, System.Globalization.DateTimeStyles.RoundtripKind);
         if (DateTime.UtcNow - issuedAt > TimeSpan.FromMinutes(10))
-            return Results.Redirect($"{frontendBaseUrl}/auth/callback?error={Uri.EscapeDataString("This sign-in link has expired. Please try again.")}");
+            return Results.Redirect($"{callbackUrl}?error={Uri.EscapeDataString("This sign-in link has expired. Please try again.")}");
     }
     catch
     {
-        return Results.Redirect($"{frontendBaseUrl}/auth/callback?error={Uri.EscapeDataString("Invalid sign-in state.")}");
+        return Results.Redirect($"{callbackUrl}?error={Uri.EscapeDataString("Invalid sign-in state.")}");
     }
 
     try
@@ -375,11 +396,11 @@ app.MapGet("/api/auth/google/callback", async (
         var handoffCode = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
         memoryCache.Set(GoogleHandoffCacheKey(handoffCode), result, TimeSpan.FromSeconds(60));
 
-        return Results.Redirect($"{frontendBaseUrl}/auth/callback?code={handoffCode}");
+        return Results.Redirect($"{callbackUrl}?code={handoffCode}");
     }
     catch (InvalidOperationException ex)
     {
-        return Results.Redirect($"{frontendBaseUrl}/auth/callback?error={Uri.EscapeDataString(ex.Message)}");
+        return Results.Redirect($"{callbackUrl}?error={Uri.EscapeDataString(ex.Message)}");
     }
 });
 
